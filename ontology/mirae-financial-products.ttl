@@ -1,0 +1,52 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fi: <https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/> .
+@prefix fibo-product: <https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/> .
+@prefix fibo-bond: <https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/> .
+@prefix fibo-fund: <https://spec.edmcouncil.org/fibo/ontology/SEC/Funds/Funds/> .
+@prefix fibo-listing: <https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesListings/> .
+
+<urn:miraeasset:ontology:financial-products>
+    a owl:Ontology ;
+    rdfs:label "Mirae Asset financial-product application profile"@en ;
+    rdfs:comment "A deliberately small FIBO-aligned profile used by the Excel-to-Neo4j loader."@en .
+
+fibo-product:FinancialProduct a owl:Class ; rdfs:label "Financial product"@en .
+fibo-fi:FinancialInstrument a owl:Class ; rdfs:label "Financial instrument"@en .
+fibo-fi:DebtInstrument a owl:Class ; rdfs:label "Debt instrument"@en ;
+    rdfs:subClassOf fibo-fi:FinancialInstrument .
+fibo-bond:Bond a owl:Class ; rdfs:label "Bond"@en ;
+    rdfs:subClassOf fibo-fi:DebtInstrument .
+
+fibo-fund:ExchangeTradedFund a owl:Class ; rdfs:label "Exchange-traded fund"@en .
+fibo-fund:MutualFund a owl:Class ; rdfs:label "Mutual fund"@en .
+fibo-fund:FundUnit a owl:Class ; rdfs:label "Fund unit"@en .
+fibo-fund:TradableFundUnit a owl:Class ; rdfs:label "Tradable fund unit"@en ;
+    rdfs:subClassOf fibo-fund:FundUnit .
+fibo-fund:NonTradableFundUnit a owl:Class ; rdfs:label "Non-tradable fund unit"@en ;
+    rdfs:subClassOf fibo-fund:FundUnit .
+
+fibo-listing:ListedSecurity a owl:Class ; rdfs:label "Listed security"@en ;
+    rdfs:subClassOf fibo-fi:FinancialInstrument .
+fibo-listing:Listing a owl:Class ; rdfs:label "Security listing"@en .
+
+ma:ExchangeTradedNote a owl:Class ; rdfs:label "Exchange-traded note"@en ;
+    rdfs:comment "Local extension for an exchange-traded debt security; payoff semantics require further source documentation."@en ;
+    rdfs:subClassOf fibo-fi:DebtInstrument, fibo-listing:ListedSecurity .
+
+ma:SourceDataset a owl:Class ; rdfs:label "Source dataset"@en .
+ma:SourceFile a owl:Class ; rdfs:label "Source file"@en .
+ma:SourceRecord a owl:Class ; rdfs:label "Source record"@en .
+ma:FieldDefinition a owl:Class ; rdfs:label "Source field definition"@en .
+ma:Organization a owl:Class ; rdfs:label "Organization"@en .
+ma:Market a owl:Class ; rdfs:label "Market"@en .
+ma:Benchmark a owl:Class ; rdfs:label "Benchmark"@en .
+ma:Classification a owl:Class ; rdfs:label "Classification"@en .
+ma:Offering a owl:Class ; rdfs:label "Product offering"@en .
+ma:Observation a owl:Class ; rdfs:label "Dated observation"@en .
+ma:BondSnapshot a owl:Class ; rdfs:label "Bond snapshot"@en ; rdfs:subClassOf ma:Observation .
+ma:MarketSnapshot a owl:Class ; rdfs:label "Market snapshot"@en ; rdfs:subClassOf ma:Observation .
+ma:FundSnapshot a owl:Class ; rdfs:label "Fund snapshot"@en ; rdfs:subClassOf ma:Observation .
+ma:DataQualityIssue a owl:Class ; rdfs:label "Data-quality issue"@en .
+
