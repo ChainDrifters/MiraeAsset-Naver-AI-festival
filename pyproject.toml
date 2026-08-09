@@ -1,0 +1,21 @@
+[project]
+name = "mirae-asset-graph"
+version = "0.1.0"
+description = "Repeatable Excel-to-Neo4j loader for the Mirae Asset financial-product snapshots"
+requires-python = ">=3.11"
+dependencies = [
+  "neo4j>=6.0,<7",
+  "openpyxl>=3.1,<4",
+  "python-dotenv>=1.1,<2",
+]
+
+[project.scripts]
+mirae-graph = "mirae_asset_graph.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mirae_asset_graph"]
+
