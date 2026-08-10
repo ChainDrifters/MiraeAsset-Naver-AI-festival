@@ -1,0 +1,22 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fund: <https://spec.edmcouncil.org/fibo/ontology/SEC/Funds/Funds/> .
+
+<urn:miraeasset:ontology:financial-products:fund-pub>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset public-fund ontology"@en ;
+    rdfs:label "미래에셋 공모펀드 온톨로지"@ko .
+
+ma:PublicFund a owl:Class ;
+    rdfs:label "Public fund"@en ;
+    rdfs:label "공모펀드"@ko ;
+    rdfs:comment "A fund represented in the public-fund master dataset; its more specific type remains an ETF or mutual fund."@en ;
+    rdfs:subClassOf ma:Product .
+
+ma:PublicFundUnit a owl:Class ;
+    rdfs:label "Public fund unit"@en ;
+    rdfs:label "공모펀드 수익증권"@ko ;
+    rdfs:comment "An investor unit or share class of a public fund."@en ;
+    rdfs:subClassOf fibo-fund:FundUnit .

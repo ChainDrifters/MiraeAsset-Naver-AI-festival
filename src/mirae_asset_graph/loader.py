@@ -17,10 +17,17 @@ from .model import (
     DEBT_INSTRUMENT,
     ETF,
     ETN,
+    GLOBAL_ETF,
+    GLOBAL_ETN,
+    KOREAN_BOND,
+    KOREAN_ETF,
+    KOREAN_ETN,
     LISTED_SECURITY,
     LISTING,
     MUTUAL_FUND,
     NON_TRADABLE_FUND_UNIT,
+    PUBLIC_FUND,
+    PUBLIC_FUND_UNIT,
     TRADABLE_FUND_UNIT,
     DatasetSpec,
     benchmark,
@@ -68,6 +75,14 @@ SCHEMA_STATEMENTS = (
     FOR (entity:Bond|Fund|Security|Organization|Benchmark)
     ON EACH [entity.name, entity.shortName, entity.englishName, entity.ticker]
     """,
+)
+
+ONTOLOGY_MODULES = (
+    "common.ttl",
+    "bond_kr.ttl",
+    "etf_kr.ttl",
+    "etf_gl.ttl",
+    "fund_pub.ttl",
 )
 
 UPSERT_SOURCE_FILE = """
@@ -525,7 +540,7 @@ def _transform_bond(
                 "dataset": dataset,
             }
         ),
-        "classes": class_refs([BOND]),
+        "classes": class_refs([BOND, KOREAN_BOND]),
         "identifiers": identifiers,
         "organizations": compact_list([issuer]),
         "classifications": classifications,
@@ -613,13 +628,21 @@ def _transform_exchange_product(
             "dataset": dataset,
         }
     )
+    if dataset == "domestic_etf_etn":
+        domain_etf_class, domain_etn_class = KOREAN_ETF, KOREAN_ETN
+    elif dataset == "overseas_etf_etn":
+        domain_etf_class, domain_etn_class = GLOBAL_ETF, GLOBAL_ETN
+    else:
+        raise ValueError(f"Unsupported exchange-product dataset: {dataset}")
 
     if group == "ETN" or boolean(row.get("cu_etn_yn")) is True:
         payload = {
             "sourceUri": source_uri,
             "uri": unit_uri,
             "properties": {**common_properties, "fiboClassUri": ETN},
-            "classes": class_refs([ETN, DEBT_INSTRUMENT, LISTED_SECURITY]),
+            "classes": class_refs(
+                [ETN, domain_etn_class, DEBT_INSTRUMENT, LISTED_SECURITY]
+            ),
             "identifiers": identifiers,
             "organizations": compact_list([manager]),
             "benchmarks": compact_list([base_index]),
@@ -645,7 +668,7 @@ def _transform_exchange_product(
                 "dataset": dataset,
             }
         ),
-        "fundClasses": class_refs([ETF]),
+        "fundClasses": class_refs([ETF, domain_etf_class]),
         "unitClasses": class_refs([TRADABLE_FUND_UNIT, LISTED_SECURITY]),
         "identifiers": identifiers,
         "organizations": compact_list([manager]),
@@ -781,9 +804,11 @@ def _transform_public_fund(
                 "dataset": dataset,
             }
         ),
-        "fundClasses": class_refs([ETF if is_etf else MUTUAL_FUND]),
+        "fundClasses": class_refs([ETF if is_etf else MUTUAL_FUND, PUBLIC_FUND]),
         "unitClasses": class_refs(
-            [TRADABLE_FUND_UNIT, LISTED_SECURITY] if is_etf else [NON_TRADABLE_FUND_UNIT]
+            [TRADABLE_FUND_UNIT, LISTED_SECURITY, PUBLIC_FUND_UNIT]
+            if is_etf
+            else [NON_TRADABLE_FUND_UNIT, PUBLIC_FUND_UNIT]
         ),
         "identifiers": identifiers,
         "organizations": compact_list([manager]),
@@ -865,27 +890,31 @@ class FinancialProductsLoader:
         )
 
     def _import_application_profile(self) -> None:
-        ttl = self.ontology_path.read_text(encoding="utf-8")
-        records, _, _ = self.driver.execute_query(
-            """
-            CALL n10s.onto.import.inline($ttl, 'Turtle', {
-              classLabel: 'Class',
-              subClassOfRel: 'SUBCLASS_OF',
-              objectPropertyLabel: 'Relationship',
-              dataTypePropertyLabel: 'Property',
-              subPropertyOfRel: 'SUBPROPERTY_OF',
-              domainRel: 'DOMAIN',
-              rangeRel: 'RANGE',
-              addResourceLabels: true
-            })
-            YIELD terminationStatus, triplesLoaded, triplesParsed
-            RETURN terminationStatus, triplesLoaded, triplesParsed
-            """,
-            ttl=ttl,
-            database_=self.database,
-        )
-        if records:
-            self.stats["ontologyTriplesLoaded"] += int(records[0]["triplesLoaded"])
+        for path in self._ontology_files():
+            ttl = path.read_text(encoding="utf-8")
+            records, _, _ = self.driver.execute_query(
+                """
+                CALL n10s.onto.import.inline($ttl, 'Turtle', {
+                  classLabel: 'Class',
+                  subClassOfRel: 'SUBCLASS_OF',
+                  objectPropertyLabel: 'Relationship',
+                  dataTypePropertyLabel: 'Property',
+                  subPropertyOfRel: 'SUBPROPERTY_OF',
+                  domainRel: 'DOMAIN',
+                  rangeRel: 'RANGE',
+                  addResourceLabels: true
+                })
+                YIELD terminationStatus, triplesLoaded, triplesParsed
+                RETURN terminationStatus, triplesLoaded, triplesParsed
+                """,
+                ttl=ttl,
+                database_=self.database,
+            )
+            self.stats["ontologyFilesImported"] += 1
+            if records:
+                triples_loaded = int(records[0]["triplesLoaded"])
+                self.stats["ontologyTriplesLoaded"] += triples_loaded
+                self.stats[f"ontology.{path.stem}.triplesLoaded"] += triples_loaded
         # With KEEP URI handling, n10s expands its physical schema label and
         # relationship names. Add stable application-level aliases for Cypher
         # and GraphRAG without removing the lossless n10s representation.
@@ -905,6 +934,24 @@ class FinancialProductsLoader:
             """,
             database_=self.database,
         )
+
+    def _ontology_files(self) -> list[Path]:
+        if self.ontology_path.is_file():
+            return [self.ontology_path]
+        if not self.ontology_path.is_dir():
+            raise FileNotFoundError(
+                f"Ontology path does not exist: {self.ontology_path}"
+            )
+
+        paths = [self.ontology_path / name for name in ONTOLOGY_MODULES]
+        missing = [path.name for path in paths if not path.is_file()]
+        if missing:
+            missing_names = ", ".join(missing)
+            raise FileNotFoundError(
+                f"Ontology directory {self.ontology_path} is missing required modules: "
+                f"{missing_names}"
+            )
+        return paths
 
     def load(self, selected: set[str] | None = None) -> dict[str, Any]:
         for spec in DATASETS:

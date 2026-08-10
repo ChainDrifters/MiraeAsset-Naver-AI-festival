@@ -1,11 +1,23 @@
 # Financial-product graph load
 
-This document records how the 2026-07-11 Excel snapshots in `금융상품/` were
+This document records how the 2026-07-11 Excel snapshots in `xlsx_data/` were
 loaded into the Compose-managed `neo4j-2` database on 2026-08-04.
 
 For a beginner-oriented explanation of the finance concepts, every application
 node and relationship, and the detailed row-to-graph conversion, see
 [`graph-model-guide.md`](graph-model-guide.md).
+
+For the meaning and graph treatment of every field in the four XLSX feeds, see
+[`xlsx-field-reference.md`](xlsx-field-reference.md).
+
+For the proposed validated query contract over this graph, see
+[`query-dsl-spec.md`](query-dsl-spec.md).
+
+For the contest-aligned boundary between currently answerable questions and
+missing evidence, see
+[`current-data-capabilities.md`](current-data-capabilities.md). Planned external
+data is documented separately in
+[`external-data-plan.md`](external-data-plan.md).
 
 ## Result
 
@@ -22,13 +34,14 @@ The load completed successfully and is idempotent for the same snapshot.
 | ETNs | 591 |
 | Listings | 32,303 |
 | Dated observations | 67,825 |
-| Total nodes | 472,165 |
-| Total relationships | 1,236,466 |
+| Total nodes | 472,173 |
+| Total relationships | 1,308,490 |
 | Duplicate `Resource.uri` values | 0 |
 
-The relationship total includes ten normalized `SUBCLASS_OF` links added after
-the initial load report. The one rejected record is public-fund Excel row 84,563,
-whose columns are visibly shifted and whose `itm_no` value is `"`.
+The relationship total includes 22 normalized `SUBCLASS_OF` links and the
+feed-specific ontology typing applied on 2026-08-10. The one rejected record is
+public-fund Excel row 84,563, whose columns are visibly shifted and whose
+`itm_no` value is `"`.
 
 Per-source validation:
 
@@ -42,6 +55,13 @@ Per-source validation:
 The overseas ETF rows resolve to 5,537 distinct ETF fund/unit resources. Fifty
 securities have two listings, accounting for the difference between ETF rows and
 canonical ETF entities.
+
+Although the load creates dated observation nodes, it creates one
+`BondSnapshot` per bond, one `FundSnapshot` per fund unit, and at most one
+`MarketSnapshot` per listing when market data is supplied. Source update dates
+differ across rows, but the result is not an entity-level historical time
+series. It cannot prove a holding, classification, or theme relationship over
+the preceding six months.
 
 ## Runtime and n10s installation
 
@@ -152,9 +172,34 @@ order, source type, Korean name, and example where supplied. The derived
 ## FIBO application profile
 
 The loader does not import all of FIBO. It imports the deliberately small
-`ontology/mirae-financial-products.ttl` profile using
-`n10s.onto.import.inline`. The profile contains 63 parsed ontology triples and
-references these main FIBO concepts:
+application profile from five modules using `n10s.onto.import.inline`:
+
+```text
+ontology/
+├── common.ttl
+├── bond_kr.ttl
+├── etf_kr.ttl
+├── etf_gl.ttl
+└── fund_pub.ttl
+```
+
+The loader imports them in that order. `owl:imports` records the dependency on
+`common.ttl`, while explicit iteration by the loader ensures n10s receives each
+local file without relying on URI dereferencing.
+
+| Module | Responsibility | Local domain classes |
+|---|---|---|
+| `common.ttl` | Shared FIBO alignments, product superclass, provenance, reference, and observation classes | `Product`, `ExchangeTradedNote` |
+| `bond_kr.ttl` | Domestic-bond feed | `KoreanBond` |
+| `etf_kr.ttl` | Korean ETF/ETN feed | `KoreanExchangeTradedFund`, `KoreanExchangeTradedNote` |
+| `etf_gl.ttl` | Overseas ETF/ETN feed | `GlobalExchangeTradedFund`, `GlobalExchangeTradedNote` |
+| `fund_pub.ttl` | Public-fund feed | `PublicFund`, `PublicFundUnit` |
+
+The modular union contains 128 unique RDF triples, 34 OWL classes, and 22
+`rdfs:subClassOf` statements. All semantic class and subclass statements from
+the former 63-triple monolithic profile remain present; the extra statements
+describe the modules and feed-specific classes. The profile references these
+main FIBO concepts:
 
 - `Bond`
 - `DebtInstrument`
@@ -166,9 +211,17 @@ references these main FIBO concepts:
 - `ListedSecurity`
 - `Listing`
 
+This is currently a **class taxonomy/application profile**, not a complete
+formal schema for the property graph. The TTL files do not declare the loader's
+relationships or normalized scalar fields as OWL properties and do not contain
+SHACL validation shapes. Relationship names such as `HAS_UNIT`, `MANAGED_BY`,
+and `HAS_OBSERVATION` are enforced by loader/query conventions. Formal property
+and shape modules are a planned hardening step, not a claim of this load.
+
 It adds the local `ExchangeTradedNote` class as a subclass of FIBO
 `DebtInstrument` and `ListedSecurity`. It does not claim complete ETN payoff
-semantics.
+semantics. Feed-specific classes sit beneath the shared local/FIBO types; for
+example, `KoreanBond` is a subclass of both local `Product` and FIBO `Bond`.
 
 n10s is configured with full vocabulary URIs (`handleVocabUris: KEEP`), arrays
 for multivalued properties, language-tag preservation, and custom datatype
@@ -178,6 +231,39 @@ for ordinary Cypher and GraphRAG traversal; it does not remove the n10s form.
 
 Canonical entities retain their primary alignment in `fiboClassUri` and connect
 to one or more ontology classes through `INSTANCE_OF`.
+
+### Existing-database migration
+
+No database reset or Excel re-ingestion into a new database is required. The
+resource URIs and existing FIBO classes are unchanged, and all writes use
+`MERGE`.
+
+The modular profile was applied to the existing database on 2026-08-10 with:
+
+```bash
+uv run mirae-graph load --batch-size 500
+```
+
+`load` imported all five ontology modules, created their subclass links, and
+revisited the canonical entities to add the new feed-specific `INSTANCE_OF`
+links. Direct post-load validation returned:
+
+| Check | Count |
+|---|---:|
+| `OntologyClass` nodes | 34 |
+| `INSTANCE_OF` relationships | 158,835 |
+| `SUBCLASS_OF` relationships | 22 |
+| n10s `neo4j://graph.schema#SCO` relationships | 22 |
+| New feed-specific `INSTANCE_OF` relationships | 72,000 |
+
+The seven new domain-class populations also matched their expected canonical
+counts: 42,394 Korean bonds; 1,202 Korean ETFs; 532 Korean ETNs; 5,537 global
+ETFs; 59 global ETNs; 11,138 public funds; and 11,138 public-fund units.
+
+For another database, run the same `load` command rather than only `prepare`.
+`prepare` imports the class hierarchy but does not attach existing products to
+`KoreanBond`, `GlobalExchangeTradedFund`, `PublicFund`, and the other new domain
+classes. The operation remains safe to rerun because it is idempotent.
 
 ## Identity and mapping rules
 

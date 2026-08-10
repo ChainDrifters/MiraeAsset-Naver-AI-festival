@@ -26,14 +26,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=PROJECT_ROOT / "금융상품",
+        default=PROJECT_ROOT / "xlsx_data",
         help="Directory containing the data and schema workbooks.",
     )
     parser.add_argument(
         "--ontology",
         type=Path,
-        default=PROJECT_ROOT / "ontology" / "mirae-financial-products.ttl",
-        help="FIBO-aligned Turtle application profile imported with n10s.",
+        default=PROJECT_ROOT / "ontology",
+        help="Directory containing the five ontology modules, or one Turtle file.",
     )
     parser.add_argument(
         "--dataset",

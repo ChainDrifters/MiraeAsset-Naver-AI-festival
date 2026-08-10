@@ -1,0 +1,20 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-bond: <https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/Bonds/> .
+
+<urn:miraeasset:ontology:financial-products:bond-kr>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset Korean bond ontology"@en ;
+    rdfs:label "미래에셋 국내채권 온톨로지"@ko .
+
+fibo-bond:Bond a owl:Class ;
+    rdfs:label "Bond"@en ;
+    rdfs:subClassOf <https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/DebtInstrument> .
+
+ma:KoreanBond a owl:Class ;
+    rdfs:label "Korean bond"@en ;
+    rdfs:label "국내채권"@ko ;
+    rdfs:comment "A bond represented in the domestic-bond master dataset."@en ;
+    rdfs:subClassOf ma:Product, fibo-bond:Bond .

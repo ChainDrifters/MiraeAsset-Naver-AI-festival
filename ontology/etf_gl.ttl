@@ -1,0 +1,22 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fund: <https://spec.edmcouncil.org/fibo/ontology/SEC/Funds/Funds/> .
+
+<urn:miraeasset:ontology:financial-products:etf-gl>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset global ETF and ETN ontology"@en ;
+    rdfs:label "미래에셋 해외 ETF·ETN 온톨로지"@ko .
+
+ma:GlobalExchangeTradedFund a owl:Class ;
+    rdfs:label "Global exchange-traded fund"@en ;
+    rdfs:label "해외 ETF"@ko ;
+    rdfs:comment "An exchange-traded fund represented in the overseas ETF/ETN master dataset."@en ;
+    rdfs:subClassOf ma:Product, fibo-fund:ExchangeTradedFund .
+
+ma:GlobalExchangeTradedNote a owl:Class ;
+    rdfs:label "Global exchange-traded note"@en ;
+    rdfs:label "해외 ETN"@ko ;
+    rdfs:comment "An exchange-traded note represented in the overseas ETF/ETN master dataset."@en ;
+    rdfs:subClassOf ma:ExchangeTradedNote .

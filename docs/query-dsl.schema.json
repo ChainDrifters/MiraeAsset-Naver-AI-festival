@@ -1,0 +1,639 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:miraeasset:schema:financial-product-query-dsl:1.0",
+  "title": "Financial-product query DSL request",
+  "description": "Structural request schema for the read-only financial-product query DSL. Field-catalog and graph-path validation is specified separately in query-dsl-spec.md.",
+  "type": "object",
+  "required": [
+    "dsl_version",
+    "operation",
+    "entity"
+  ],
+  "properties": {
+    "dsl_version": {
+      "const": "1.0"
+    },
+    "query_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "operation": {
+      "enum": [
+        "find",
+        "aggregate",
+        "neighbors",
+        "provenance"
+      ]
+    },
+    "entity": {
+      "enum": [
+        "product",
+        "security",
+        "bond",
+        "etf",
+        "etn",
+        "mutual_fund",
+        "fund",
+        "fund_unit",
+        "organization",
+        "benchmark",
+        "listing",
+        "source_record",
+        "ontology_class"
+      ]
+    },
+    "select": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/projection"
+      }
+    },
+    "text_search": {
+      "$ref": "#/$defs/textSearch"
+    },
+    "where": {
+      "$ref": "#/$defs/expression"
+    },
+    "observations": {
+      "$ref": "#/$defs/observations"
+    },
+    "group_by": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/fieldName"
+      }
+    },
+    "aggregates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/aggregate"
+      }
+    },
+    "traversal": {
+      "$ref": "#/$defs/traversal"
+    },
+    "order_by": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/order"
+      }
+    },
+    "page": {
+      "$ref": "#/$defs/page"
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidence"
+    },
+    "options": {
+      "$ref": "#/$defs/options"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "aggregate"
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "then": {
+        "required": [
+          "aggregates"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "neighbors"
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "then": {
+        "required": [
+          "traversal"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "safeAlias": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "maxLength": 100
+    },
+    "fieldName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+      "minLength": 3,
+      "maxLength": 200
+    },
+    "projection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/fieldName"
+        },
+        {
+          "type": "object",
+          "required": [
+            "field",
+            "as"
+          ],
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/fieldName"
+            },
+            "scope": {
+              "$ref": "#/$defs/safeAlias"
+            },
+            "as": {
+              "$ref": "#/$defs/safeAlias"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean"
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/scalar"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/scalar"
+          }
+        }
+      ]
+    },
+    "predicate": {
+      "type": "object",
+      "required": [
+        "field",
+        "op"
+      ],
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/fieldName"
+        },
+        "scope": {
+          "$ref": "#/$defs/safeAlias"
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "not_in",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "between",
+            "contains",
+            "starts_with",
+            "ends_with",
+            "exists",
+            "not_exists"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "exists",
+                  "not_exists"
+                ]
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "allExpression": {
+      "type": "object",
+      "required": [
+        "all"
+      ],
+      "properties": {
+        "all": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/expression"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "anyExpression": {
+      "type": "object",
+      "required": [
+        "any"
+      ],
+      "properties": {
+        "any": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/expression"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "notExpression": {
+      "type": "object",
+      "required": [
+        "not"
+      ],
+      "properties": {
+        "not": {
+          "$ref": "#/$defs/expression"
+        }
+      },
+      "additionalProperties": false
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/predicate"
+        },
+        {
+          "$ref": "#/$defs/allExpression"
+        },
+        {
+          "$ref": "#/$defs/anyExpression"
+        },
+        {
+          "$ref": "#/$defs/notExpression"
+        }
+      ]
+    },
+    "textSearch": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "mode": {
+          "enum": [
+            "exact",
+            "contains",
+            "fulltext"
+          ],
+          "default": "fulltext"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/fieldName"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "observationSelector": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "latest",
+            "on",
+            "at_or_before",
+            "between",
+            "all"
+          ]
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "from": {
+          "type": "string",
+          "format": "date"
+        },
+        "to": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "on",
+                  "at_or_before"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "date"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "between"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "from",
+              "to"
+            ]
+          }
+        }
+      ]
+    },
+    "observations": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "fund": {
+          "$ref": "#/$defs/observationSelector"
+        },
+        "market": {
+          "$ref": "#/$defs/observationSelector"
+        },
+        "bond": {
+          "$ref": "#/$defs/observationSelector"
+        }
+      },
+      "additionalProperties": false
+    },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "function",
+        "as"
+      ],
+      "properties": {
+        "function": {
+          "enum": [
+            "count",
+            "count_distinct",
+            "min",
+            "max",
+            "avg",
+            "sum"
+          ]
+        },
+        "field": {
+          "$ref": "#/$defs/fieldName"
+        },
+        "scope": {
+          "$ref": "#/$defs/safeAlias"
+        },
+        "as": {
+          "$ref": "#/$defs/safeAlias"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "function": {
+                "const": "count"
+              }
+            },
+            "required": [
+              "function"
+            ]
+          },
+          "else": {
+            "required": [
+              "field"
+            ]
+          }
+        }
+      ]
+    },
+    "relation": {
+      "enum": [
+        "has_unit",
+        "of_fund",
+        "managed_by",
+        "issued_by",
+        "tracks",
+        "classified_as",
+        "has_identifier",
+        "listed_as",
+        "on_market",
+        "has_offering",
+        "has_observation",
+        "instance_of",
+        "subclass_of",
+        "described_by",
+        "in_file"
+      ]
+    },
+    "traversal": {
+      "type": "object",
+      "required": [
+        "relations"
+      ],
+      "properties": {
+        "relations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 15,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relation"
+          }
+        },
+        "min_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 1
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 1
+        },
+        "return": {
+          "enum": [
+            "paths",
+            "nodes"
+          ],
+          "default": "nodes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "order": {
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/fieldName"
+        },
+        "scope": {
+          "$ref": "#/$defs/safeAlias"
+        },
+        "direction": {
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "asc"
+        },
+        "nulls": {
+          "enum": [
+            "first",
+            "last"
+          ],
+          "default": "last"
+        }
+      },
+      "additionalProperties": false
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "none",
+            "summary",
+            "rows"
+          ],
+          "default": "summary"
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "max_source_rows_per_result": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "distinct": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_nulls": {
+          "type": "boolean",
+          "default": false
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000,
+          "default": 5000
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

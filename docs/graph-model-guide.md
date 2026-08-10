@@ -7,6 +7,18 @@ ontology background.
 The shorter operational record—commands, installed versions, validation totals,
 and rerun instructions—is in [`data-loading.md`](data-loading.md).
 
+For a column-by-column explanation of all 207 Excel fields, see
+[`xlsx-field-reference.md`](xlsx-field-reference.md).
+
+For the read-only JSON query language proposed for applications and GraphRAG,
+see [`query-dsl-spec.md`](query-dsl-spec.md).
+
+For an evidence-based assessment of which contest questions this graph can
+currently answer, see
+[`current-data-capabilities.md`](current-data-capabilities.md). Future holdings,
+company, XBRL, and document modeling is kept in
+[`external-data-plan.md`](external-data-plan.md).
+
 ## The two-minute mental model
 
 The graph separates four questions that spreadsheets often put in one row:
@@ -287,8 +299,8 @@ venue-specific offering records.
 
 | Label | Count | Meaning |
 |---|---:|---|
-| `OntologyClass` | 26 | FIBO or local application-profile class used for semantic typing |
-| `neo4j://graph.schema#Class` | 26 | n10s's lossless physical label for the same ontology-class nodes |
+| `OntologyClass` | 34 | FIBO or local application-profile class used for semantic typing |
+| `neo4j://graph.schema#Class` | 34 | n10s's lossless physical label for the same ontology-class nodes |
 | `_GraphConfig` | 1 | Internal n10s RDF import/export configuration |
 
 The expanded `neo4j://...` label is intentionally retained for n10s. Application
@@ -352,12 +364,12 @@ The subject of an observation matters:
 
 | Relationship | Count | Pattern | Meaning |
 |---|---:|---|---|
-| `INSTANCE_OF` | 86,835 | `Entity → OntologyClass` | The entity is semantically typed using a FIBO/local class |
-| `SUBCLASS_OF` | 10 | `OntologyClass → OntologyClass` | Friendly application alias for an ontology class hierarchy |
-| `neo4j://graph.schema#SCO` | 10 | `OntologyClass → OntologyClass` | n10s's lossless representation of the same subclass statements |
+| `INSTANCE_OF` | 158,835 | `Entity → OntologyClass` | The entity is semantically typed using stable FIBO/shared and feed-specific classes |
+| `SUBCLASS_OF` | 22 | `OntologyClass → OntologyClass` | Friendly application alias for an ontology class hierarchy |
+| `neo4j://graph.schema#SCO` | 22 | `OntologyClass → OntologyClass` | n10s's lossless representation of the same subclass statements |
 
 Do not traverse both `SUBCLASS_OF` and `neo4j://graph.schema#SCO` in one query
-unless duplicate paths are intentionally handled; they represent the same ten
+unless duplicate paths are intentionally handled; they represent the same
 logical hierarchy statements.
 
 An entity can have several `INSTANCE_OF` links. An ETN, for example, connects to
@@ -702,24 +714,35 @@ No canonical fund or unit is created from that row.
 The graph uses FIBO for semantic typing, but it does not copy the entire FIBO
 repository into the database.
 
-The local application profile imports 26 ontology classes with n10s. Canonical
-entities connect to them with `INSTANCE_OF`.
+The modular local application profile defines 34 ontology classes across
+`common.ttl`, `bond_kr.ttl`, `etf_kr.ttl`, `etf_gl.ttl`, and `fund_pub.ttl`.
+Canonical entities connect to both their stable FIBO/shared type and their
+feed-specific local type with `INSTANCE_OF`.
 
 Examples:
 
 ```text
-Bond ── INSTANCE_OF ──> FIBO Bond
+Bond ── INSTANCE_OF ──> local KoreanBond ── SUBCLASS_OF ──> FIBO Bond
+  └──── INSTANCE_OF ──> FIBO Bond
 
-ETF Fund ── INSTANCE_OF ──> FIBO ExchangeTradedFund
+Korean ETF Fund ── INSTANCE_OF ──> local KoreanExchangeTradedFund
+        └───────── INSTANCE_OF ──> FIBO ExchangeTradedFund
 ETF Unit ── INSTANCE_OF ──> FIBO TradableFundUnit
 ETF Unit ── INSTANCE_OF ──> FIBO ListedSecurity
 
-Public non-listed unit ── INSTANCE_OF ──> FIBO NonTradableFundUnit
+Public Fund ── INSTANCE_OF ──> local PublicFund
+Public Unit ── INSTANCE_OF ──> local PublicFundUnit
+           └─ INSTANCE_OF ──> FIBO NonTradableFundUnit when non-listed
 
 ETN ── INSTANCE_OF ──> local ExchangeTradedNote
+ETN ── INSTANCE_OF ──> local KoreanExchangeTradedNote or GlobalExchangeTradedNote
 ETN ── INSTANCE_OF ──> FIBO DebtInstrument
 ETN ── INSTANCE_OF ──> FIBO ListedSecurity
 ```
+
+The modular typing was applied to the existing database on 2026-08-10 with an
+idempotent `uv run mirae-graph load`. It added 72,000 feed-specific
+`INSTANCE_OF` links without a reset or duplicate resources.
 
 The primary class URI is also copied to `fiboClassUri` for simple filtering.
 
@@ -775,6 +798,40 @@ it. Absence should not be read as a negative fact.
 
 The loader is append/upsert oriented. A product missing from a future snapshot is
 not automatically deleted or marked inactive.
+
+### One observation is not a history
+
+Each current bond and fund unit receives one corresponding observation from
+this load; a listing receives at most one market observation when its row
+supplies market data. The source-provided `asOf` dates vary, but there are not
+repeated observations of a given type for the same entity. The graph therefore
+cannot establish a six-month holding, theme, classification, AUM, or strategy
+history.
+
+### No holdings, control hierarchy, theme assertions, or risk corpus
+
+The four workbooks do not contain ETF portfolio positions, benchmark
+constituent weights, corporate parent/subsidiary assertions, sourced temporal
+theme relationships, or prospectus risk passages. Current product-name matches
+are discovery candidates only. They do not prove holdings or corporate/theme
+relationships.
+
+### Source population can be sparse or non-informative
+
+A field definition does not guarantee usable values. In the domestic ETF/ETN
+snapshot, dividend frequency and sector name are entirely blank, the main fee
+field is populated for only 217 of 1,734 rows, and every populated tracking-error
+value is `0.00`. See
+[`current-data-capabilities.md`](current-data-capabilities.md#field-existence-is-not-data-availability)
+for the audited coverage table.
+
+### The current TTL profile formalizes classes, not all graph properties
+
+The five TTL modules provide FIBO-aligned classes and subclass relationships.
+The operational property-graph relationships and scalar properties are defined
+by loader/query conventions; OWL property declarations and SHACL shapes have
+not yet been added. This does not invalidate the loaded graph, but it limits how
+much of its contract can be validated independently of the Python code.
 
 ## Reading Cypher queries
 
@@ -929,4 +986,3 @@ indiscriminately in every answer context.
 | Security | Identifiable financial instrument that may be held or traded |
 | Source record | Exact original Excel row retained as evidence |
 | Yield | Return measure derived from price and expected payments; definition varies |
-

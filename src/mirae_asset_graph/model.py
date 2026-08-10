@@ -24,6 +24,13 @@ NON_TRADABLE_FUND_UNIT = FIBO + "SEC/Funds/Funds/NonTradableFundUnit"
 LISTED_SECURITY = FIBO + "SEC/Securities/SecuritiesListings/ListedSecurity"
 LISTING = FIBO + "SEC/Securities/SecuritiesListings/Listing"
 ETN = MA_ONTOLOGY + "ExchangeTradedNote"
+KOREAN_BOND = MA_ONTOLOGY + "KoreanBond"
+KOREAN_ETF = MA_ONTOLOGY + "KoreanExchangeTradedFund"
+KOREAN_ETN = MA_ONTOLOGY + "KoreanExchangeTradedNote"
+GLOBAL_ETF = MA_ONTOLOGY + "GlobalExchangeTradedFund"
+GLOBAL_ETN = MA_ONTOLOGY + "GlobalExchangeTradedNote"
+PUBLIC_FUND = MA_ONTOLOGY + "PublicFund"
+PUBLIC_FUND_UNIT = MA_ONTOLOGY + "PublicFundUnit"
 
 
 CLASS_NAMES = {
@@ -38,6 +45,13 @@ CLASS_NAMES = {
     LISTED_SECURITY: "Listed security",
     LISTING: "Security listing",
     ETN: "Exchange-traded note",
+    KOREAN_BOND: "Korean bond",
+    KOREAN_ETF: "Korean exchange-traded fund",
+    KOREAN_ETN: "Korean exchange-traded note",
+    GLOBAL_ETF: "Global exchange-traded fund",
+    GLOBAL_ETN: "Global exchange-traded note",
+    PUBLIC_FUND: "Public fund",
+    PUBLIC_FUND_UNIT: "Public fund unit",
 }
 
 
