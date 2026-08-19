@@ -13,7 +13,7 @@ scan_file() {
   local line_number=0
   local line
   local hex_regex='[[:xdigit:]]{32,}'
-  local key_regex="(^|[^[:alnum:]_])([[:alnum:]_]*[Kk][Ee][Yy])[[:space:]]*=[[:space:]]*[\"']?([^[:space:]#\"']{20,})"
+  local key_regex="(^|[^[:alnum:]_])([[:alnum:]_]*[Kk][Ee][Yy])[[:space:]]*=[[:space:]]*[\"']?([^[:space:]#\"'=|]{20,})"
 
   [[ -f "$file" ]] || return 0
   excluded_path "$file" && return 0

@@ -9,9 +9,12 @@ from neo4j import Driver
 
 from ..model import component, file_sha256
 
+from .crosswalk import CROSSWALK_FIELDS
 from .manifest import ManifestEntry, Phase, Status, append_entry, batch_id, is_loaded
 
 MAX_UNWIND_BATCH = 500
+
+CROSSWALK_SOURCE = "crosswalk"
 
 UPSERT_HOLDINGS = """
 MERGE (source:Resource:ExternalSource {uri: $sourceUri})
@@ -55,6 +58,31 @@ MERGE (position)-[:HOLDS]->(constituent)
 MERGE (position)-[:DERIVED_FROM]->(artifact)
 MERGE (run)-[:UPSERTED]->(snapshot)
 MERGE (run)-[:UPSERTED]->(position)
+"""
+
+UPSERT_CROSSWALK = """
+MERGE (run:Resource:IngestionRun {uri: $runUri})
+SET run.runId = $runId,
+    run.source = $source,
+    run.startedAt = $startedAt,
+    run.finishedAt = $finishedAt,
+    run.status = $status
+WITH run
+UNWIND $rows AS row
+MERGE (entry:Resource:ExternalCrosswalkEntry {uri: row.entryUri})
+SET entry.entityKind = row.entityKind,
+    entry.localKeyType = row.localKeyType,
+    entry.localKey = row.localKey,
+    entry.localName = row.localName,
+    entry.standardIdType = row.standardIdType,
+    entry.standardId = row.standardId,
+    entry.standardName = row.standardName,
+    entry.sourceUrl = row.sourceUrl,
+    entry.reviewedBy = row.reviewedBy,
+    entry.reviewedAt = row.reviewedAt,
+    entry.retrievedAt = $retrievedAt,
+    entry.updatedAt = datetime()
+MERGE (run)-[:UPSERTED]->(entry)
 """
 
 
@@ -141,10 +169,34 @@ class ExternalGraphLoader:
         )
         return {"rows": len(payload)}
 
+    def upsert_crosswalk(
+        self,
+        rows: Iterable[Mapping[str, object]],
+        *,
+        run_id: str,
+        retrieved_at: datetime,
+    ) -> dict[str, int]:
+        payload = [_crosswalk_payload(row) for row in rows]
+        _ensure_batch_cap(payload)
+        _ = self.driver.execute_query(
+            UPSERT_CROSSWALK,
+            runUri=f"urn:miraeasset:external:run:{component(run_id)}",
+            runId=run_id,
+            source=CROSSWALK_SOURCE,
+            startedAt=datetime.now(UTC),
+            finishedAt=datetime.now(UTC),
+            status=Status.LOADED.value,
+            retrievedAt=retrieved_at,
+            rows=payload,
+            database_=self.database,
+        )
+        return {"rows": len(payload)}
+
     def label_counts(self) -> dict[str, int]:
         labels = (
             "ExternalSource",
             "ExternalArtifact",
+            "ExternalCrosswalkEntry",
             "IngestionRun",
             "PortfolioSnapshot",
             "HoldingPosition",
@@ -183,6 +235,28 @@ def _holding_payload(row: Mapping[str, object]) -> dict[str, object]:
         "snapshotUri": f"urn:miraeasset:portfolio-snapshot:{fund}:{as_of.isoformat()}",
         "positionUri": f"urn:miraeasset:holding:{fund}:{constituent}:{as_of.isoformat()}",
     }
+
+
+def _crosswalk_payload(row: Mapping[str, object]) -> dict[str, object]:
+    values = {field: str(row.get(field, "") or "").strip() for field in CROSSWALK_FIELDS}
+    optional = ("local_name", "standard_name", "source_url", "reviewed_by", "reviewed_at")
+    payload: dict[str, object] = {
+        _camel_case(field): values[field] or None if field in optional else values[field]
+        for field in CROSSWALK_FIELDS
+    }
+    payload["entryUri"] = (
+        "urn:miraeasset:crosswalk:"
+        f"{component(values['standard_id_type'])}:"
+        f"{component(values['standard_id'])}:"
+        f"{component(values['local_key_type'])}:"
+        f"{component(values['local_key'])}"
+    )
+    return payload
+
+
+def _camel_case(field: str) -> str:
+    head, *tail = field.split("_")
+    return head + "".join(part.capitalize() for part in tail)
 
 
 def _required_text(row: Mapping[str, object], key: str) -> str:
