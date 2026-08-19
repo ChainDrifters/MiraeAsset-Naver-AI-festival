@@ -1,0 +1,39 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Snapshot/assertion property conventions for this module use loader-managed graph
+# properties including asOf, validFrom, validTo, publishedAt, retrievedAt,
+# sourceDocument, and evidenceBasis. Operational graph properties remain loader
+# conventions this cycle; no SHACL shapes are declared here, consistent with the
+# current documentation boundary.
+
+<urn:miraeasset:ontology:financial-products:disclosure>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset disclosure ontology"@en ;
+    rdfs:label "미래에셋 공시 온톨로지"@ko .
+
+ma:DisclosureDocument a owl:Class ;
+    rdfs:label "Disclosure document"@en ;
+    rdfs:label "공시 문서"@ko ;
+    rdfs:comment "A sourced prospectus, report, filing, or other disclosure document retained with publication and retrieval provenance."@en ;
+    rdfs:subClassOf ma:SourceFile .
+
+ma:DocumentSection a owl:Class ;
+    rdfs:label "Document section"@en ;
+    rdfs:label "문서 구간"@ko ;
+    rdfs:comment "An addressable section within a disclosure document, preserving document-local anchors when loaded."@en ;
+    rdfs:subClassOf ma:SourceRecord .
+
+ma:RiskFactor a owl:Class ;
+    rdfs:label "Risk factor"@en ;
+    rdfs:label "위험요인"@ko ;
+    rdfs:comment "A sourced risk-factor assertion extracted from a disclosure document section or passage."@en ;
+    rdfs:subClassOf ma:Observation .
+
+ma:EvidencePassage a owl:Class ;
+    rdfs:label "Evidence passage"@en ;
+    rdfs:label "근거 문단"@ko ;
+    rdfs:comment "An addressable passage used as textual evidence for a graph assertion, with source-document and retrieval provenance preserved by the loader."@en ;
+    rdfs:subClassOf ma:SourceRecord .

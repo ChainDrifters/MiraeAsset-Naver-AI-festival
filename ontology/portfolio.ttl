@@ -1,0 +1,33 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Snapshot/assertion property conventions for this module use loader-managed graph
+# properties including asOf, validFrom, validTo, publishedAt, retrievedAt,
+# sourceDocument, and evidenceBasis. Operational graph properties remain loader
+# conventions this cycle; no SHACL shapes are declared here, consistent with the
+# current documentation boundary.
+
+<urn:miraeasset:ontology:financial-products:portfolio>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset portfolio ontology"@en ;
+    rdfs:label "미래에셋 포트폴리오 온톨로지"@ko .
+
+ma:PortfolioSnapshot a owl:Class ;
+    rdfs:label "Portfolio snapshot"@en ;
+    rdfs:label "포트폴리오 스냅샷"@ko ;
+    rdfs:comment "A dated portfolio or creation-basket snapshot for a financial product."@en ;
+    rdfs:subClassOf ma:Observation .
+
+ma:HoldingPosition a owl:Class ;
+    rdfs:label "Holding position"@en ;
+    rdfs:label "편입 종목 포지션"@ko ;
+    rdfs:comment "A sourced position within a dated portfolio snapshot, including quantities, weights, values, currencies, and evidence basis when loaded."@en ;
+    rdfs:subClassOf ma:Observation .
+
+ma:BenchmarkConstituentSnapshot a owl:Class ;
+    rdfs:label "Benchmark constituent snapshot"@en ;
+    rdfs:label "벤치마크 구성종목 스냅샷"@ko ;
+    rdfs:comment "A dated benchmark-constituent observation used when benchmark membership is the explicit evidence basis for a portfolio-related assertion."@en ;
+    rdfs:subClassOf ma:Observation .

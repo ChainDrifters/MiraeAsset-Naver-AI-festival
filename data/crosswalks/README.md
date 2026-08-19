@@ -1,0 +1,1 @@
+This directory contains the reviewed identity crosswalk template for contest entities. Replace every `EXAMPLE_` row in `contest_entities.csv` with reviewed real entities before the Phase 2 freeze, and never merge entities by name alone.

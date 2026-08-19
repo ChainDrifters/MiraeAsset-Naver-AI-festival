@@ -221,3 +221,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# hareness
+.sisyphus
+.omc
+
+# ingestion runtime state
+var/
+data/crosswalks/.cache/

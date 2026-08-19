@@ -83,6 +83,9 @@ ONTOLOGY_MODULES = (
     "etf_kr.ttl",
     "etf_gl.ttl",
     "fund_pub.ttl",
+    "portfolio.ttl",
+    "corporate.ttl",
+    "disclosure.ttl",
 )
 
 UPSERT_SOURCE_FILE = """

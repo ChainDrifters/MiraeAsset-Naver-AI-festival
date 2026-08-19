@@ -43,6 +43,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--database", default=os.getenv("NEO4J_DATABASE", "neo4j"))
+    parser.add_argument(
+        "--fail-on-validation-error",
+        action="store_true",
+        help="Exit with an error when validation finds duplicate resource URIs or unlinked source records.",
+    )
     parser.add_argument("--uri", help="Neo4j URI; defaults to the local Compose Bolt port.")
     parser.add_argument("--user", default=os.getenv("NEO4J_USER", "neo4j"))
     return parser
@@ -94,6 +99,12 @@ def main() -> None:
         validation = loader.validate()
         print("Validation:")
         print(FinancialProductsLoader.format_report(validation))
+        metrics = validation.get("metrics", {})
+        if args.fail_on_validation_error and (
+            metrics.get("duplicateResourceUris", 0) > 0
+            or metrics.get("unlinkedNonRejectedSourceRecords", 0) > 0
+        ):
+            raise SystemExit("Validation failed: duplicate resource URIs or unlinked source records found.")
 
 
 if __name__ == "__main__":

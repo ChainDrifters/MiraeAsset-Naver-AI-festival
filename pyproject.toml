@@ -19,3 +19,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mirae_asset_graph"]
 
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]

@@ -1,0 +1,33 @@
+@prefix ma: <urn:miraeasset:ontology:financial-products:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Snapshot/assertion property conventions for this module use loader-managed graph
+# properties including asOf, validFrom, validTo, publishedAt, retrievedAt,
+# sourceDocument, and evidenceBasis. Operational graph properties remain loader
+# conventions this cycle; no SHACL shapes are declared here, consistent with the
+# current documentation boundary.
+
+<urn:miraeasset:ontology:financial-products:corporate>
+    a owl:Ontology ;
+    owl:imports <urn:miraeasset:ontology:financial-products:common> ;
+    rdfs:label "Mirae Asset corporate ontology"@en ;
+    rdfs:label "미래에셋 기업 온톨로지"@ko .
+
+ma:Company a owl:Class ;
+    rdfs:label "Company"@en ;
+    rdfs:label "회사"@ko ;
+    rdfs:comment "A legal company or corporate group member identified from sourced company, security, or disclosure records."@en ;
+    rdfs:subClassOf ma:Organization .
+
+ma:EquitySecurity a owl:Class ;
+    rdfs:label "Equity security"@en ;
+    rdfs:label "지분증권"@ko ;
+    rdfs:comment "An equity security mapped to a company through sourced identifiers rather than name-only matching."@en ;
+    rdfs:subClassOf ma:Product .
+
+ma:CorporateRelationshipAssertion a owl:Class ;
+    rdfs:label "Corporate relationship assertion"@en ;
+    rdfs:label "기업 관계 주장"@ko ;
+    rdfs:comment "A sourced, time-bounded assertion about parent, subsidiary, control, ownership, or related corporate relationships."@en ;
+    rdfs:subClassOf ma:Observation .

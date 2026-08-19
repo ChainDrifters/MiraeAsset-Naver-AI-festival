@@ -1,0 +1,4 @@
+entity_kind,local_key_type,local_key,local_name,standard_id_type,standard_id,standard_name,source_url,reviewed_by,reviewed_at
+security,sse_code,688256,EXAMPLE_Cambricon,isin,CNE1000041K3,Cambricon Technologies Corporation Limited,https://www.sse.com.cn/star/en/marketdata/snapshot/c/5485110.shtml,,
+company,dart_corp_name,EcoPro BM,EXAMPLE_EcoProBM,krx_code,247540,EcoPro BM Co. Ltd.,https://dart.fss.or.kr/html/search/SearchCompanyIR_M.html?textCrpNM=247540,,
+fund,krx_ticker,091160,EXAMPLE_KODEX_Semiconductor,isin,KR7091160005,KODEX Semiconductor,https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201020503,,
