@@ -128,7 +128,13 @@ KRX approval status; only a recorded written approval flips KRX to GO.
       retry with backoff, namespace-insensitive XML parser, strict
       cutoff/report-date filtering, normalized `HoldingsRecord` output,
       quarantine for unresolved/invalid positions. (commit `3c1be81`)
-- [ ] `kr_basket` adapter (manager-published CSV/PDF).
+- [x] Support: `Adapter.normalize` contract generalized to
+      `normalize(target, raw, output) -> SourceResult` shared across
+      adapters; LSP diagnostics report 0 errors. (commit `fbfe3c3`)
+- [x] `kr_basket` adapter: manager-published basket CSV (UTF-8/CP949) and
+      XLSX, reported or derived weights, reviewed identifier resolution with
+      quarantine for unresolved positions, PDF deliberately unsupported.
+      (commit `3071dd7`)
 - [ ] `PortfolioSnapshot`/`HoldingPosition` graph model per asOf;
       benchmark-constituent fallback labeled per snapshot.
 - [ ] Backfill runner for 2026-01-11 → 2026-07-11, monthly where published;
@@ -185,7 +191,7 @@ arrive.
 
 ```bash
 bash scripts/secret_scan.sh             # secret scan: OK
-uv run pytest                           # 66 passed / 2 skipped at HEAD
+uv run pytest                           # 84 passed / 2 skipped at HEAD
 uv run python -m compileall src         # byte-compile check
 uv run python scripts/connect_check.py  # blocked until NEO4J_PASSWORD
 uv run python scripts/transfer_raw.py   # blocked until SSH inputs
@@ -205,16 +211,19 @@ All commits below are verified on `origin/main`.
 | 2026-08-21 | `6602350` | Add normalized holdings record contract. | records/resolver stage 36 passed; full pytest 48 passed / 2 skipped | Yes |
 | 2026-08-21 | `4a2e7d8` | Add reviewed identifier resolver. | full pytest 48 passed / 2 skipped; secret scan OK | Yes |
 | 2026-08-21 | `3c1be81` | Add SEC N-PORT holdings adapter. | nport 18 passed; full pytest 66 passed / 2 skipped; compileall and secret scan OK | Yes |
+| 2026-08-21 | `fbfe3c3` | Generalize adapter normalization contract. | targeted 36 passed; full pytest 84 passed / 2 skipped; LSP 0 errors | Yes |
+| 2026-08-21 | `3071dd7` | Add Korean manager basket adapter. | basket 18 passed; full pytest 84 passed / 2 skipped; compileall and secret scan OK | Yes |
 
 Dates are commit author dates from `git log`. 2026-08-21 entries reflect the
 actual git timestamps of `8a3659c` and `a6acdb5`, not local clock assumptions.
 
 ## Next execution order
 
-1. Implement the manager-basket adapter plus backfill on top of the
-   completed shared contracts (`HoldingsRecord` normalized contract, the
-   reviewed identifier resolver, and the now-complete N-PORT adapter)
-   (credential-independent).
+1. Implement the ingestion runner/backfill integrating the N-PORT and
+   manager-basket adapters over the completed shared contracts
+   (`HoldingsRecord` normalized contract, the reviewed identifier resolver,
+   the generalized `Adapter.normalize` contract, and the adapters
+   themselves) (credential-independent).
 2. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
 3. OpenDART control ingestion for the EcoPro family (or the
    manual-official fallback).
