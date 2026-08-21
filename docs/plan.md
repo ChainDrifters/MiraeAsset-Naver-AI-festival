@@ -108,9 +108,11 @@ KRX approval status; only a recorded written approval flips KRX to GO.
 - [x] `data/crosswalks/contest_entities.csv` template + identifier-based
       loader mapping + `tests/test_crosswalk.py` name-merge guard.
       (commit `7657b24`)
-- [ ] Crosswalk frozen with real entities: Cambricon, EcoPro family, US
+- [x] Crosswalk frozen with real entities: Cambricon, EcoPro family, US
       China-semiconductor ETF set, KR aerospace/semiconductor ETF set.
-      Commit checkpoint 2.
+      21 reviewed rows, official identifiers only; unverified ISINs
+      deliberately left as exchange/regulator codes; identity evidence
+      only, not holdings/control evidence. (commit `4f313e1`)
 
 ### Phase 3 — ETF holdings
 
@@ -191,21 +193,19 @@ All commits below are verified on `origin/main`.
 | 2026-08-19 | `7657b24` | Crosswalk loader with name-merge guard; secret scanner self-match fixed and canary-verified. | pytest 11 passed / 2 skipped | Yes |
 | 2026-08-21 | `8a3659c` | Secret scanner distinguishes environment credentials (`scripts/secret_scan.sh` only). | secret scan OK at HEAD; pytest 11 passed / 2 skipped | Yes |
 | 2026-08-21 | `a6acdb5` | Phase 3 D+1 stop/go decision recorded in `docs/external-sources-decision.md` (docs-only). | No tests applicable (no code change); secret scan OK | Yes |
+| 2026-08-21 | `4f313e1` | Freeze reviewed contest entity crosswalk. | test_crosswalk 7 passed; full pytest 12 passed / 2 skipped; secret scan OK | Yes |
 
 Dates are commit author dates from `git log`. 2026-08-21 entries reflect the
 actual git timestamps of `8a3659c` and `a6acdb5`, not local clock assumptions.
 
 ## Next execution order
 
-1. Freeze the entity crosswalk from official sources into
-   `data/crosswalks/contest_entities.csv` (Cambricon, EcoPro family, US
-   China-semiconductor ETF set, KR aerospace/semiconductor set).
-2. Implement the N-PORT and manager-basket adapters plus backfill
+1. Implement the N-PORT and manager-basket adapters plus backfill
    (credential-independent).
-3. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
-4. OpenDART control ingestion for the EcoPro family (or the
+2. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
+3. OpenDART control ingestion for the EcoPro family (or the
    manual-official fallback).
-5. Disclosure passages, theme history, and golden tests for questions 1–3.
+4. Disclosure passages, theme history, and golden tests for questions 1–3.
 
 ## Commit and push protocol
 
