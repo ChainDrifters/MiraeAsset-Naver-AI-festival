@@ -135,10 +135,16 @@ KRX approval status; only a recorded written approval flips KRX to GO.
       XLSX, reported or derived weights, reviewed identifier resolution with
       quarantine for unresolved positions, PDF deliberately unsupported.
       (commit `3071dd7`)
+- [x] Shared `IngestRunner`: discover/fetch/normalize orchestration,
+      as-of/source-document shards capped at 500 rows, append-only manifest,
+      loaded-batch resume skip, failure continuation with sanitized errors,
+      and full-SHA256 document identity with a 32-bit chunk ordinal.
+      (commit `61cc013`)
 - [ ] `PortfolioSnapshot`/`HoldingPosition` graph model per asOf;
       benchmark-constituent fallback labeled per snapshot.
-- [ ] Backfill runner for 2026-01-11 → 2026-07-11, monthly where published;
-      watermarks per `(source, window_date)`.
+- [ ] CLI target discovery and backfill configuration for 2026-01-11 →
+      2026-07-11, monthly where published; watermarks per
+      `(source, window_date)`. The reusable runner engine is complete.
 
 ### Phase 4 — corporate control (OpenDART)
 
@@ -182,6 +188,7 @@ KRX approval status; only a recorded written approval flips KRX to GO.
 | `NEO4J_PASSWORD` | Local `.env` entry | Live proxy probe, remote graph loads |
 | `MIRAE_RAW_REMOTE` + SSH key | Tailscale host/user/key details | rsync artifact transfer |
 | `xlsx_data/` absent locally | Four source XLSX snapshots | Full local reloads (git-ignored) |
+| OpenCode process restart | The current long-lived process cached stale Claude/Gemini routes. `~/.config/opencode/oh-my-openagent.json` is now GPT/GLM-only and model-ID validated. | Reliable subagent delegation after restart |
 
 Credential-independent work (crosswalk freeze, adapters, tests) continues
 despite these blockers; no remote writes or API calls happen until the inputs
@@ -191,7 +198,7 @@ arrive.
 
 ```bash
 bash scripts/secret_scan.sh             # secret scan: OK
-uv run pytest                           # 84 passed / 2 skipped at HEAD
+uv run pytest                           # 106 passed / 2 skipped at HEAD
 uv run python -m compileall src         # byte-compile check
 uv run python scripts/connect_check.py  # blocked until NEO4J_PASSWORD
 uv run python scripts/transfer_raw.py   # blocked until SSH inputs
@@ -213,17 +220,16 @@ All commits below are verified on `origin/main`.
 | 2026-08-21 | `3c1be81` | Add SEC N-PORT holdings adapter. | nport 18 passed; full pytest 66 passed / 2 skipped; compileall and secret scan OK | Yes |
 | 2026-08-21 | `fbfe3c3` | Generalize adapter normalization contract. | targeted 36 passed; full pytest 84 passed / 2 skipped; LSP 0 errors | Yes |
 | 2026-08-21 | `3071dd7` | Add Korean manager basket adapter. | basket 18 passed; full pytest 84 passed / 2 skipped; compileall and secret scan OK | Yes |
+| 2026-08-21 | `61cc013` | Add resumable holdings ingestion runner. | runner 22 passed; full pytest 106 passed / 2 skipped; compileall, secret scan, and LSP 0 errors | Yes |
 
 Dates are commit author dates from `git log`. 2026-08-21 entries reflect the
 actual git timestamps of `8a3659c` and `a6acdb5`, not local clock assumptions.
 
 ## Next execution order
 
-1. Implement the ingestion runner/backfill integrating the N-PORT and
-   manager-basket adapters over the completed shared contracts
-   (`HoldingsRecord` normalized contract, the reviewed identifier resolver,
-   the generalized `Adapter.normalize` contract, and the adapters
-   themselves) (credential-independent).
+1. Implement CLI target discovery and backfill configuration over the
+   completed `IngestRunner`, N-PORT adapter, and manager-basket adapter
+   (credential-independent).
 2. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
 3. OpenDART control ingestion for the EcoPro family (or the
    manual-official fallback).

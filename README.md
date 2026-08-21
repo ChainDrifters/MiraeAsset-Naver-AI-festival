@@ -1,9 +1,11 @@
 # Mirae Asset Financial Product Agent
 
 Ontology-grounded financial-product retrieval for the Mirae Asset × Naver AI
-Festival. The repository currently implements the **XLSX-to-Neo4j data and
-ontology foundation**. The natural-language query service, external evidence
-pipelines, and answer-generation API are planned but not yet implemented.
+Festival. The repository implements the **XLSX-to-Neo4j data and ontology
+foundation** plus the credential-independent core of an **external-evidence
+ingestion framework**. Live external backfill, corporate/disclosure/theme
+evidence, the natural-language query service, and the answer-generation API
+remain incomplete.
 
 Current data boundary: four financial-product master snapshots dated
 **2026-07-11**. See
@@ -33,24 +35,35 @@ planned work; their order roughly follows implementation priority.
       dates, units, and provenance.
 - [ ] Obtain the source vendor's field definitions, code dictionaries, rating
       scales, and formula/unit specifications.
-- [ ] Add reviewed fund-family, organization, market, and security-identifier
-      crosswalks; never merge entities by name alone.
+- [x] Add a reviewed contest-entity identity crosswalk with strict identifier
+      joins and a tested guard against name-only merges.
+- [ ] Expand reviewed fund-family, organization, market, and identifier
+      crosswalks beyond the contest entity set.
 - [ ] Implement snapshot supersession, correction, disappearance, and deletion
       semantics for later XLSX loads.
 
 ### External evidence and ontology enrichment
 
-- [ ] Implement a source-acquisition framework with authentication, rate limits,
-      licensing metadata, checksums, retries, amendment handling, and cutoff
-      controls.
-- [ ] Add `portfolio.ttl` and dated ETF holdings/creation baskets, benchmark
-      constituents, weights, quantities, values, and currencies.
-- [ ] Add `corporate.ttl` and sourced, time-bounded parent/subsidiary/control
-      assertions with security-to-company mappings.
+- [x] Implement the source-acquisition core: adapter contract, append-only run
+      manifests, deterministic batches, checksums, retries, cutoff filtering,
+      quarantine, and resumable loads.
+- [x] Implement SEC N-PORT XML and Korean manager-published CSV/XLSX basket
+      adapters with offline fixtures and source-specific access controls.
+- [ ] Implement live target discovery, archived-file collection, and the
+      2026-01-11 through 2026-07-11 backfill.
+- [x] Add `portfolio.ttl` and normalized portfolio snapshot/holding loader
+      conventions.
+- [ ] Load production dated holdings/creation baskets and benchmark
+      constituents with source-backed quantities, values, weights, currencies,
+      and coverage records.
+- [x] Add the `corporate.ttl` semantic module.
+- [ ] Load sourced, time-bounded parent/subsidiary/control assertions with
+      security-to-company mappings.
 - [ ] Add `reporting.ttl` and conformant XBRL/iXBRL ingestion, preserving filing,
       taxonomy, concept, context, period, unit, dimensions, and amendments.
-- [ ] Add `disclosure.ttl`, prospectuses/reports, addressable risk passages, and
-      a document/vector index.
+- [x] Add the `disclosure.ttl` semantic module.
+- [ ] Load prospectuses/reports and addressable risk passages; document-vector
+      indexing remains out of the contest-critical path.
 - [ ] Add a controlled theme vocabulary, evidence-backed temporal theme
       associations, and repeated historical snapshots.
 - [ ] Fetch authoritative fee, distribution, tracking-error, NAV/AUM, and FX
@@ -80,9 +93,12 @@ planned work; their order roughly follows implementation priority.
 
 ### Quality and delivery
 
-- [ ] Add unit tests for parsing, normalization, identity, and DSL validation.
-- [ ] Add integration tests for Neo4j loading, idempotency, provenance, and
-      query compilation.
+- [x] Add unit tests for manifests, normalization, identity resolution,
+      N-PORT parsing, manager baskets, and runner resume/chunk/failure behavior.
+- [ ] Add semantic DSL validation tests.
+- [x] Add environment-gated Neo4j integration tests for external-load
+      idempotency and resume behavior.
+- [ ] Add integration tests for provenance and query compilation.
 - [ ] Turn the sample questions into golden answerability/evidence tests,
       including deliberately unanswerable inputs.
 - [ ] Measure external-source coverage, freshness, corrections, and outage
@@ -90,6 +106,42 @@ planned work; their order roughly follows implementation priority.
 - [ ] Meet the contest latency target and test concurrent evaluation requests.
 - [ ] Add service observability, secrets handling, source-health reporting, and
       a reproducible production deployment.
+
+Current test baseline: **106 passed and 2 environment-gated integration tests
+skipped** without a live test Neo4j URI.
+
+## Current external-ingestion status
+
+The tracked execution source of truth is [`docs/plan.md`](docs/plan.md). Source
+licensing and access decisions are recorded in
+[`docs/external-sources-decision.md`](docs/external-sources-decision.md).
+
+Implemented:
+
+- a 21-row reviewed contest entity crosswalk for Cambricon, the EcoPro family,
+  China-semiconductor ETF candidates, and Korean aerospace/semiconductor ETFs;
+- a normalized `HoldingsRecord` contract and reviewed-identifier resolver that
+  never joins by name;
+- SEC N-PORT XML and Korean manager CSV/XLSX basket adapters with raw caching,
+  retry/rate-limit policy, deterministic JSONL output, and quarantine;
+- a resumable `IngestRunner` that shards by source document and as-of date,
+  caps graph batches at 500 rows, and records append-only manifest state; and
+- secret scanning, proxy-connect checks, rsync/checksum transfer tooling, and
+  106 passing offline tests.
+
+Known blockers and unfinished work:
+
+- the OpenDART key exposed during planning must be revoked; its replacement
+  belongs only in the git-ignored `.env`;
+- `NEO4J_PASSWORD` is required to run the approved proxy read/write probe;
+- Tailscale SSH/rsync parameters are required for raw-artifact transfer;
+- `xlsx_data/` is absent from this checkout; and
+- live target discovery/backfill CLI, OpenDART control ingestion, disclosure
+  passages, theme history, and golden answerability tests are not implemented.
+
+Investment recommendation, suitability judgment, customer profiling, and
+recommendation scoring are explicitly out of scope. Objective filtering,
+comparison, and ranking by a user-supplied metric remain in scope.
 
 ## Current dataset and graph
 
@@ -124,6 +176,22 @@ Neo4j: source -> canonical -> observation -> ontology
                     |
                     v
             validation + Cypher
+```
+
+Implemented external-ingestion path (live target configuration/backfill still
+pending):
+
+```text
+official raw source
+        |
+        v
+source adapter -> immutable raw artifact + checksum
+        |
+        v
+normalized JSONL + quarantine + append-only manifest
+        |
+        v
+resumable runner -> bounded MERGE batches -> Neo4j portfolio/provenance graph
 ```
 
 Planned query path:
