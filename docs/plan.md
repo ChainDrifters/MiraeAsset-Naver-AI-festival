@@ -118,6 +118,11 @@ KRX approval status; only a recorded written approval flips KRX to GO.
 
 - [x] D+1 license stop/go decision recorded in
       `docs/external-sources-decision.md`. (commit `a6acdb5`)
+- [x] Shared `HoldingsRecord` normalized contract + JSONL I/O + loader
+      payload. (commit `6602350`)
+- [x] Reviewed identifier resolver: source ISIN first, reviewed ISIN
+      crosswalk second, unresolved otherwise; no name matching.
+      (commit `4a2e7d8`)
 - [ ] `nport` adapter (public quarterly ZIP/TSV/XML) with rate policy,
       retry/backoff, raw caching.
 - [ ] `kr_basket` adapter (manager-published CSV/PDF).
@@ -177,7 +182,7 @@ arrive.
 
 ```bash
 bash scripts/secret_scan.sh             # secret scan: OK
-uv run pytest                           # 11 passed / 2 skipped at HEAD
+uv run pytest                           # 48 passed / 2 skipped at HEAD
 uv run python -m compileall src         # byte-compile check
 uv run python scripts/connect_check.py  # blocked until NEO4J_PASSWORD
 uv run python scripts/transfer_raw.py   # blocked until SSH inputs
@@ -194,14 +199,17 @@ All commits below are verified on `origin/main`.
 | 2026-08-21 | `8a3659c` | Secret scanner distinguishes environment credentials (`scripts/secret_scan.sh` only). | secret scan OK at HEAD; pytest 11 passed / 2 skipped | Yes |
 | 2026-08-21 | `a6acdb5` | Phase 3 D+1 stop/go decision recorded in `docs/external-sources-decision.md` (docs-only). | No tests applicable (no code change); secret scan OK | Yes |
 | 2026-08-21 | `4f313e1` | Freeze reviewed contest entity crosswalk. | test_crosswalk 7 passed; full pytest 12 passed / 2 skipped; secret scan OK | Yes |
+| 2026-08-21 | `6602350` | Add normalized holdings record contract. | records/resolver stage 36 passed; full pytest 48 passed / 2 skipped | Yes |
+| 2026-08-21 | `4a2e7d8` | Add reviewed identifier resolver. | full pytest 48 passed / 2 skipped; secret scan OK | Yes |
 
 Dates are commit author dates from `git log`. 2026-08-21 entries reflect the
 actual git timestamps of `8a3659c` and `a6acdb5`, not local clock assumptions.
 
 ## Next execution order
 
-1. Implement the N-PORT and manager-basket adapters plus backfill
-   (credential-independent).
+1. Implement the N-PORT and manager-basket adapters plus backfill on top of
+   the completed shared contracts (`HoldingsRecord` normalized contract and
+   the reviewed identifier resolver) (credential-independent).
 2. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
 3. OpenDART control ingestion for the EcoPro family (or the
    manual-official fallback).
