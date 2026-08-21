@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edgarSubmission xmlns="http://www.sec.gov/edgar/nport" xmlns:ncom="http://www.sec.gov/edgar/common">
+  <header>
+    <submissionType>N-PORT</submissionType>
+    <filerId>0000000001</filerId>
+    <accessionNumber>0000000001-26-000001</accessionNumber>
+    <ncom:city>Alexandria</ncom:city>
+  </header>
+  <formData>
+    <genInfo>
+      <registrarName>Synthetic Test Fund</registrarName>
+      <regFileNumber>811-000001</regFileNumber>
+      <reportDate>2026-06-30</reportDate>
+    </genInfo>
+    <fundInfo>
+      <invstOrSecs>
+        <invstOrSec>
+          <name>Synthetic Holding One</name>
+          <title>SYN1</title>
+          <isin>US0000000001</isin>
+          <cusip>000000001</cusip>
+          <balance>4000</balance>
+          <units>NS</units>
+          <curCd>USD</curCd>
+          <valUSD>400000</valUSD>
+          <pctVal>40.0000</pctVal>
+        </invstOrSec>
+        <invstOrSec>
+          <name>Synthetic Holding Two</name>
+          <title>SYN2</title>
+          <cusip>000000002</cusip>
+          <balance>2500</balance>
+          <units>NS</units>
+          <curCd>USD</curCd>
+          <valUSD>250000</valUSD>
+          <pctVal>25.0000</pctVal>
+        </invstOrSec>
+        <invstOrSec>
+          <name>Synthetic Holding Three</name>
+          <title>SYN3</title>
+          <isin>US0000000003</isin>
+          <cusip>000000003</cusip>
+          <balance>2000</balance>
+          <units>NS</units>
+          <curCd>USD</curCd>
+          <valUSD>200000</valUSD>
+        </invstOrSec>
+        <invstOrSec>
+          <name>Synthetic Holding Four</name>
+          <title>SYN4</title>
+          <isin>US0000000004</isin>
+          <cusip>000000004</cusip>
+          <balance>-500</balance>
+          <units>NS</units>
+          <curCd>USD</curCd>
+          <valUSD>50000</valUSD>
+          <pctVal>5.0000</pctVal>
+        </invstOrSec>
+        <invstOrSec>
+          <name>Synthetic Holding Five</name>
+          <title>SYN5</title>
+          <isin>US0000000005</isin>
+          <cusip>000000005</cusip>
+          <balance>500</balance>
+          <units>NS</units>
+          <curCd>USD</curCd>
+          <valUSD>50000</valUSD>
+          <pctVal>150.0000</pctVal>
+        </invstOrSec>
+      </invstOrSecs>
+    </fundInfo>
+  </formData>
+</edgarSubmission>
