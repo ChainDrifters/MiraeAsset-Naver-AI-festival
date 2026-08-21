@@ -222,7 +222,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# hareness
+# harness state
 .sisyphus
 .omc
 
