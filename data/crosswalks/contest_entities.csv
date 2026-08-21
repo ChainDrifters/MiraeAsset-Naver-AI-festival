@@ -1,4 +1,22 @@
 entity_kind,local_key_type,local_key,local_name,standard_id_type,standard_id,standard_name,source_url,reviewed_by,reviewed_at
-security,sse_code,688256,EXAMPLE_Cambricon,isin,CNE1000041K3,Cambricon Technologies Corporation Limited,https://www.sse.com.cn/star/en/marketdata/snapshot/c/5485110.shtml,,
-company,dart_corp_name,EcoPro BM,EXAMPLE_EcoProBM,krx_code,247540,EcoPro BM Co. Ltd.,https://dart.fss.or.kr/html/search/SearchCompanyIR_M.html?textCrpNM=247540,,
-fund,krx_ticker,091160,EXAMPLE_KODEX_Semiconductor,isin,KR7091160005,KODEX Semiconductor,https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201020503,,
+company,sse_code,688256,Cambricon Technologies Corporation Limited (中科寒武纪科技股份有限公司),sse_code,688256,Cambricon Technologies Corporation Limited (中科寒武纪科技股份有限公司),https://www.sse.com.cn/star/en/marketdata/snapshot/c/5485110.shtml,official-source-audit,2026-08-21
+company,dart_corp_code,00536541,에코프로,krx_code,086520,"ECOPRO CO.,LTD",https://dart.fss.or.kr/dsae001/select.ax?selectKey=00536541,official-source-audit,2026-08-21
+company,dart_corp_code,01311408,EcoPro Materials,krx_code,450080,EcoPro Materials,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01311408,official-source-audit,2026-08-21
+company,dart_corp_code,01160363,EcoPro BM,krx_code,247540,EcoPro BM,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01160363,official-source-audit,2026-08-21
+company,dart_corp_code,01566248,EcoPro HN,krx_code,383310,EcoPro HN,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01566248,official-source-audit,2026-08-21
+company,dart_corp_code,01758539,EcoPro Global,dart_corp_code,01758539,EcoPro Global,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01758539,official-source-audit,2026-08-21
+company,dart_corp_code,01616941,EcoPro CnG,dart_corp_code,01616941,EcoPro CnG,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01616941,official-source-audit,2026-08-21
+company,dart_corp_code,01534814,EcoPro AP,dart_corp_code,01534814,EcoPro AP,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01534814,official-source-audit,2026-08-21
+company,dart_corp_code,00965743,EcoPro Innovation,dart_corp_code,00965743,EcoPro Innovation,https://dart.fss.or.kr/dsae001/select.ax?selectKey=00965743,official-source-audit,2026-08-21
+company,dart_corp_code,01535567,EcoPro EM,dart_corp_code,01535567,EcoPro EM,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01535567,official-source-audit,2026-08-21
+company,dart_corp_code,01763434,EcoPro Partners,dart_corp_code,01763434,EcoPro Partners,https://dart.fss.or.kr/dsae001/select.ax?selectKey=01763434,official-source-audit,2026-08-21
+etf,nyse_ticker,KSTR,KraneShares China Technology & Semiconductor STAR 50 Index ETF,isin,US5007676944,KraneShares China Technology & Semiconductor STAR 50 Index ETF,https://kraneshares.com/etf/kstr/,official-source-audit,2026-08-21
+etf,lse_ticker,KSTR,KraneShares KSTR UCITS,isin,IE00BKPJY434,KraneShares KSTR UCITS,https://kraneshares.eu/etf/kstrln/,official-source-audit,2026-08-21
+etf,nasdaq_ticker,SMHC,VanEck China Semiconductor ETF,nasdaq_ticker,SMHC,VanEck China Semiconductor ETF,https://www.vaneck.com/us/en/investments/china-semiconductor-etf-smhc,official-source-audit,2026-08-21
+etf,hkex_code,3191,Global X China Semiconductor ETF,isin,HK0000637832,Global X China Semiconductor ETF,https://www.globalxetfs.com.hk/funds/global-x-china-semiconductor-etf/,official-source-audit,2026-08-21
+etf,hkex_code,9191,Global X China Semiconductor ETF,isin,HK0000637832,Global X China Semiconductor ETF,https://www.globalxetfs.com.hk/funds/global-x-china-semiconductor-etf/,official-source-audit,2026-08-21
+etf,krx_code,449450,PLUS K방산,krx_code,449450,PLUS K Defense,https://www.plusetf.co.kr/product/detail?n=006192,official-source-audit,2026-08-21
+etf,krx_code,421320,PLUS 우주항공,krx_code,421320,PLUS Aerospace,https://www.plusetf.co.kr/product/detail?n=006344,official-source-audit,2026-08-21
+etf,krx_code,496770,PLUS 글로벌방산,krx_code,496770,PLUS Global Defense,https://www.plusetf.co.kr/product/detail?n=006377,official-source-audit,2026-08-21
+etf,krx_code,442580,PLUS 글로벌HBM반도체,krx_code,442580,PLUS Global HBM Semiconductor,https://www.plusetf.co.kr/product/detail?n=006236,official-source-audit,2026-08-21
+etf,krx_code,464920,PLUS 일본반도체소부장,krx_code,464920,PLUS Japan Semiconductor Materials and Equipment,https://www.plusetf.co.kr/product/detail?n=006366,official-source-audit,2026-08-21

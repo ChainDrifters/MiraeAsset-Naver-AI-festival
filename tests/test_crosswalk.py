@@ -13,7 +13,12 @@ from mirae_asset_graph.ingest.crosswalk import (
     is_reviewed,
     load_crosswalk,
     mapping_key,
+    standard_identifier,
     to_payload,
+)
+
+REPOSITORY_CROSSWALK = (
+    Path(__file__).resolve().parents[1] / "data" / "crosswalks" / "contest_entities.csv"
 )
 
 FIXTURE_LINES = [
@@ -110,3 +115,29 @@ def test_to_payload_keys_are_exactly_csv_fields(tmp_path: Path) -> None:
     for row in load_crosswalk(_fixture_path(tmp_path)):
         assert set(to_payload(row)) == set(CROSSWALK_FIELDS)
     assert to_payload(_row(source_url="https://example.com"))["source_url"] == "https://example.com"
+
+
+def test_repository_crosswalk_is_frozen() -> None:
+    rows = load_crosswalk(REPOSITORY_CROSSWALK)
+
+    assert len(rows) >= 20
+    assert not any(row.local_name.startswith("EXAMPLE_") for row in rows)
+    assert all(is_reviewed(row) for row in rows)
+    assert {row.reviewed_by for row in rows} == {"official-source-audit"}
+    assert {row.reviewed_at for row in rows} == {"2026-08-21"}
+    assert detect_name_only_merge(rows) == []
+
+    keys = [mapping_key(row) for row in rows]
+    assert len(keys) == len(set(keys))
+
+    identifiers = {standard_identifier(row) for row in rows}
+    expected_identifiers = {
+        "sse_code:688256",
+        "krx_code:086520",
+        "krx_code:247540",
+        "isin:US5007676944",
+        "isin:IE00BKPJY434",
+        "isin:HK0000637832",
+    }
+    assert expected_identifiers <= identifiers
+    assert all(row.source_url.startswith("https://") for row in rows)
