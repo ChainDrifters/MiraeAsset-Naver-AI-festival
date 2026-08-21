@@ -207,7 +207,7 @@ def _parse_position(element: ET.Element, index: int) -> _Position:
     )
 
 
-class NPortAdapter(Adapter[NPortTarget]):
+class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
     """Fetch and normalize public SEC Form N-PORT filings. Never touches the graph."""
 
     source = NPORT_SOURCE
@@ -358,9 +358,9 @@ class NPortAdapter(Adapter[NPortTarget]):
 
         records_path = Path(output_dir) / NPORT_SOURCE / f"{target.accession}.jsonl"
         records_path.parent.mkdir(parents=True, exist_ok=True)
-        write_jsonl(records, records_path)
+        _ = write_jsonl(records, records_path)
         quarantine_path = records_path.with_name(f"{target.accession}.quarantine.jsonl")
-        _write_quarantine_jsonl(quarantined, quarantine_path)
+        _ = _write_quarantine_jsonl(quarantined, quarantine_path)
         return records_path, quarantine_path, len(records), len(quarantined)
 
     def _normalize_position(
@@ -451,13 +451,15 @@ class NPortAdapter(Adapter[NPortTarget]):
 def _find_report_date(root: ET.Element) -> date | None:
     """First reportDate or periodOfReport anywhere in the document, by local tag."""
     for element in root.iter():
-        if _local_name(element.tag) in _REPORT_DATE_TAGS and (element.text or "").strip():
-            try:
-                return date.fromisoformat(element.text.strip())
-            except ValueError as error:
-                raise ValueError(
-                    f"N-PORT report date is not an ISO 8601 date: {element.text.strip()!r}"
-                ) from error
+        if _local_name(element.tag) not in _REPORT_DATE_TAGS:
+            continue
+        text = (element.text or "").strip()
+        if not text:
+            continue
+        try:
+            return date.fromisoformat(text)
+        except ValueError as error:
+            raise ValueError(f"N-PORT report date is not an ISO 8601 date: {text!r}") from error
     return None
 
 

@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Generic, TypeVar
 
 FetchTarget = TypeVar("FetchTarget")
+NormalizeResult = TypeVar("NormalizeResult")
 
 
-class Adapter(ABC, Generic[FetchTarget]):
+class Adapter(ABC, Generic[FetchTarget, NormalizeResult]):
     """Base contract for source adapters that never write to the graph."""
 
     source: str
@@ -21,5 +22,5 @@ class Adapter(ABC, Generic[FetchTarget]):
         """Fetch one target and return the raw artifact path."""
 
     @abstractmethod
-    def normalize(self, raw_path: Path) -> Path:
-        """Normalize a raw artifact into JSONL and return that path."""
+    def normalize(self, target: FetchTarget, raw_path: Path, output_dir: Path) -> NormalizeResult:
+        """Normalize one fetched raw artifact into the adapter's result."""

@@ -1,12 +1,15 @@
 # pyright: reportMissingTypeStubs=false
 from __future__ import annotations
 
+import email.message
 import json
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterable
 from datetime import date, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -29,27 +32,45 @@ PUBLISHED_AT = datetime(2026, 8, 1, 12, 0, 0)
 DOCUMENT_TOTAL_VAL_USD = 950000.0
 
 
-def _target(**overrides: object) -> NPortTarget:
-    values: dict[str, object] = {
-        "accession": ACCESSION,
-        "source_url": SOURCE_URL,
-        "fund_isin": FUND_ISIN,
-        "as_of": AS_OF,
-        "published_at": PUBLISHED_AT,
-    }
-    values.update(overrides)
-    return NPortTarget(**values)  # type: ignore[arg-type]
+def _target(
+    accession: str = ACCESSION,
+    source_url: str = SOURCE_URL,
+    fund_isin: str = FUND_ISIN,
+    as_of: date = AS_OF,
+    published_at: datetime = PUBLISHED_AT,
+) -> NPortTarget:
+    return NPortTarget(
+        accession=accession,
+        source_url=source_url,
+        fund_isin=fund_isin,
+        as_of=as_of,
+        published_at=published_at,
+    )
 
 
-def _adapter(tmp_path: Path, **overrides: object) -> NPortAdapter:
-    values: dict[str, object] = {
-        "targets": [_target()],
-        "raw_root": tmp_path / "raw",
-        "resolver": IdentifierResolver([]),
-        "user_agent": VALID_USER_AGENT,
-    }
-    values.update(overrides)
-    return NPortAdapter(**values)  # type: ignore[arg-type]
+def _adapter(
+    tmp_path: Path,
+    *,
+    targets: Iterable[NPortTarget] | None = None,
+    resolver: IdentifierResolver | None = None,
+    user_agent: str = VALID_USER_AGENT,
+    max_requests_per_second: float = 10.0,
+    retry_count: int = 3,
+    window_start: date | None = None,
+    window_end: date | None = None,
+    cutoff: datetime | None = None,
+) -> NPortAdapter:
+    return NPortAdapter(
+        targets=targets if targets is not None else [_target()],
+        raw_root=tmp_path / "raw",
+        resolver=resolver if resolver is not None else IdentifierResolver([]),
+        user_agent=user_agent,
+        max_requests_per_second=max_requests_per_second,
+        retry_count=retry_count,
+        window_start=window_start,
+        window_end=window_end,
+        cutoff=cutoff,
+    )
 
 
 class _FakeResponse:
@@ -67,7 +88,9 @@ class _FakeResponse:
 
 
 def _http_error(code: int) -> urllib.error.HTTPError:
-    return urllib.error.HTTPError(SOURCE_URL, code, "synthetic error", None, None)
+    return urllib.error.HTTPError(
+        SOURCE_URL, code, "synthetic error", email.message.Message(), None
+    )
 
 
 class _SleepRecorder:
@@ -111,9 +134,9 @@ def test_target_rejects_malformed_fields() -> None:
     with pytest.raises(ValueError, match="path separators"):
         _target(accession="0000000001/26/000001")
     with pytest.raises(ValueError, match="as_of"):
-        _target(as_of=datetime(2026, 6, 30, 12, 0, 0))
+        _target(as_of=cast(date, datetime(2026, 6, 30, 12, 0, 0)))
     with pytest.raises(ValueError, match="published_at"):
-        _target(published_at=AS_OF)
+        _target(published_at=cast(datetime, AS_OF))
 
 
 def test_discover_filters_window_and_cutoff(tmp_path: Path) -> None:
@@ -276,15 +299,15 @@ def test_normalize_yields_two_records_and_three_quarantined(tmp_path: Path) -> N
     assert two["source_identifier_type"] == "cusip"
     assert two["constituent_name"] == "Synthetic Holding Two"
     assert two["source_document_id"] == ACCESSION
-    assert "no reviewed ISIN crosswalk entry" in two["reason"]
+    assert "no reviewed ISIN crosswalk entry" in cast(str, two["reason"])
 
     four = by_identifier["US0000000004"]
     assert four["source_identifier_type"] == "isin"
-    assert "balance is negative: -500.0" in four["reason"]
+    assert "balance is negative: -500.0" in cast(str, four["reason"])
 
     five = by_identifier["US0000000005"]
     assert five["source_identifier_type"] == "isin"
-    assert "exceeds 1.0" in five["reason"]
+    assert "exceeds 1.0" in cast(str, five["reason"])
 
 
 def test_normalize_rejects_report_date_mismatch(tmp_path: Path) -> None:
