@@ -15,7 +15,7 @@
       "accession": "0002048251-26-004699",
       "as_of": "2026-03-31",
       "filing_date": "2026-05-29",
-      "metadata_extract": "config/ingest/phase3/sec_metadata_extract.json",
+      "metadata_extract": "docs/phase3-sec-metadata-extract.json",
       "metadata_source_sha256": "1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd",
       "evidence_urls": [
         "https://data.sec.gov/submissions/CIK0001547576.json",

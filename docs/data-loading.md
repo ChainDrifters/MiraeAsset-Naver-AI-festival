@@ -55,7 +55,7 @@ The reviewed target and discovery evidence are tracked under
 The SEC submissions metadata response used for the filing date is retained with
 SHA-256 `1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd`;
 its filing-specific extract is tracked in
-`config/ingest/phase3/sec_metadata_extract.json`.
+`docs/phase3-sec-metadata-extract.json`.
 
 | Metric | Loaded |
 |---|---:|
