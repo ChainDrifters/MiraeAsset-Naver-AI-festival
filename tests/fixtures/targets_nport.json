@@ -1,0 +1,26 @@
+{
+  "source": "sec_nport",
+  "targets": [
+    {
+      "accession": "0000000001-26-000001",
+      "source_url": "https://example.invalid/sec/nport/0000000001-26-000001.xml",
+      "fund_isin": "US5007676944",
+      "as_of": "2026-01-11",
+      "published_at": "2026-01-20T12:00:00+00:00"
+    },
+    {
+      "accession": "0000000001-26-000002",
+      "source_url": "https://example.invalid/sec/nport/0000000001-26-000002.xml",
+      "fund_isin": "US5007676944",
+      "as_of": "2026-04-11",
+      "published_at": "2026-04-20T12:00:00+00:00"
+    },
+    {
+      "accession": "0000000001-26-000003",
+      "source_url": "https://example.invalid/sec/nport/0000000001-26-000003.xml",
+      "fund_isin": "US5007676944",
+      "as_of": "2026-07-11",
+      "published_at": "2026-07-11T23:59:59+00:00"
+    }
+  ]
+}

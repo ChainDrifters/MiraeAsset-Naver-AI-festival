@@ -54,8 +54,9 @@ backfill window (cutoff freeze 2026-07-11).
 
 1. Never place API keys, passwords, or SSH keys in chat, source code, plan
    files, logs, or committed files.
-2. The OpenDART key exposed in chat must be revoked; the replacement goes only
-   into the local git-ignored `.env`, never transmitted via chat.
+2. The user explicitly authorized the current local OpenDART key on 2026-08-24.
+   It remains only in the git-ignored `.env` and is never transmitted via chat;
+   rotation is still recommended because the key was previously exposed.
 3. Runtime secrets live only in `.env`: `OPENDART_API_KEY`, `NEO4J_URI`,
    `NEO4J_USER`, `NEO4J_PASSWORD`, `MIRAE_RAW_REMOTE` (placeholders in
    `.env.example`).
@@ -83,7 +84,8 @@ KRX approval status; only a recorded written approval flips KRX to GO.
 - [x] `scripts/connect_check.py` written (driver TLS + read/write probe against
       `neo4j+s://neo4j-2.yeongmin.net:443`).
 - [x] `scripts/transfer_raw.py` written (rsync + sha256 verification).
-- [ ] Exposed OpenDART key revoked and replaced by user (into `.env` only).
+- [x] Current local OpenDART key explicitly authorized by the user on
+      2026-08-24 (`.env` only; value never recorded).
 - [ ] Live proxy probe: `connect_check.py` exits 0 (needs `NEO4J_PASSWORD`).
 - [ ] rsync round-trip with matching checksums (needs SSH host/user/key).
 
@@ -140,15 +142,27 @@ KRX approval status; only a recorded written approval flips KRX to GO.
       loaded-batch resume skip, failure continuation with sanitized errors,
       and full-SHA256 document identity with a 32-bit chunk ordinal.
       (commit `61cc013`)
-- [ ] `PortfolioSnapshot`/`HoldingPosition` graph model per asOf;
-      benchmark-constituent fallback labeled per snapshot.
-- [ ] CLI target discovery and backfill configuration for 2026-01-11 →
-      2026-07-11, monthly where published; watermarks per
-      `(source, window_date)`. The reusable runner engine is complete.
+- [x] `PortfolioSnapshot`/`HoldingPosition` load payload preserves all canonical
+      evidence fields and uses source-document-aware identities so amendments
+      remain distinct and exact reruns remain idempotent.
+- [ ] Benchmark-constituent fallback modeling and per-snapshot labeling remain
+      pending; the holdings foundation does not implement that fallback.
+- [x] CLI foundation enforces the fixed 2026-01-11 → 2026-07-11 window and
+      publication cutoff, separates `collect` / `verify-collection` / `load`,
+      seals optional backward-compatible `READY` manifest metadata, verifies
+      artifacts offline before driver creation, and gates staging writes with
+      explicit environment plus CLI authorization. Production loading remains
+      blocked pending staging-receipt support.
+- [x] Add the first reviewed real target configuration: KSTR SEC N-PORT
+      accession `0002048251-26-004699` (`asOf=2026-03-31`, filed 2026-05-29).
+      The immutable 68,120-byte XML normalized to 51 positions with zero
+      quarantines and loaded idempotently into disposable local Neo4j staging.
+- [ ] Expand the reviewed target set and backfill coverage beyond the first KSTR
+      quarter; synthetic `example.invalid` fixtures remain test-only.
 
 ### Phase 4 — corporate control (OpenDART)
 
-- [ ] Replacement OpenDART key available in `.env`.
+- [x] OpenDART key available in `.env` and explicitly authorized by the user.
 - [ ] `corp_code` sync (API if key arrived, else CSV) and
       consolidated-subsidiary/governance section extraction.
 - [ ] `CorporateRelationshipAssertion` nodes with ownership %, control basis,
@@ -184,21 +198,19 @@ KRX approval status; only a recorded written approval flips KRX to GO.
 
 | Blocker | Missing input | Unblocks |
 |---|---|---|
-| Replacement OpenDART key | User stores new key in `.env` (never chat) | Phase 4 control ingestion |
-| `NEO4J_PASSWORD` | Local `.env` entry | Live proxy probe, remote graph loads |
+| Yeongmin Neo4j write authorization and credentials | Explicit remote URI/database/user/password and post-staging approval | Transfer the verified local-staging bundle to the remote graph |
 | `MIRAE_RAW_REMOTE` + SSH key | Tailscale host/user/key details | rsync artifact transfer |
 | `xlsx_data/` absent locally | Four source XLSX snapshots | Full local reloads (git-ignored) |
 | OpenCode process restart | The current long-lived process cached stale Claude/Gemini routes. `~/.config/opencode/oh-my-openagent.json` is now GPT/GLM-only and model-ID validated. | Reliable subagent delegation after restart |
 
-Credential-independent work (crosswalk freeze, adapters, tests) continues
-despite these blockers; no remote writes or API calls happen until the inputs
-arrive.
+The SEC KSTR source was fetched read-only and loaded only into disposable local
+staging. No Yeongmin Neo4j write or OpenDART call has occurred.
 
 ## Verification commands
 
 ```bash
 bash scripts/secret_scan.sh             # secret scan: OK
-uv run pytest                           # 106 passed / 2 skipped at HEAD
+uv run pytest                           # 183 passed / 2 skipped in working tree
 uv run python -m compileall src         # byte-compile check
 uv run python scripts/connect_check.py  # blocked until NEO4J_PASSWORD
 uv run python scripts/transfer_raw.py   # blocked until SSH inputs
@@ -228,10 +240,13 @@ actual git timestamps of `8a3659c` and `a6acdb5`, not local clock assumptions.
 ## Next execution order
 
 1. Implement CLI target discovery and backfill configuration over the
-   completed `IngestRunner`, N-PORT adapter, and manager-basket adapter
-   (credential-independent).
-2. Run proxy/rsync probes when `NEO4J_PASSWORD` and SSH inputs arrive.
-3. OpenDART control ingestion for the EcoPro family (or the
+   completed first KSTR target by adding verified quarters/products and the
+   reviewed manager-CSV profile.
+2. Review the local staging receipt, then implement a staging-receipt-bound
+   production gate compatible with Yeongmin's Neo4j Community default database;
+   only afterward configure and separately authorize the remote destination.
+3. Use the user-authorized local OpenDART key for control ingestion of the
+   EcoPro family (or the
    manual-official fallback).
 4. Disclosure passages, theme history, and golden tests for questions 1–3.
 

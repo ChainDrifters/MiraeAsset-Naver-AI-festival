@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
@@ -52,8 +53,16 @@ def load_crosswalk(path: Path) -> list[CrosswalkRow]:
     Raises ValueError naming the CSV row number and field for any invalid row;
     no row is ever skipped silently.
     """
+    return load_crosswalk_bytes(path.read_bytes())
+
+
+def load_crosswalk_bytes(payload: bytes) -> list[CrosswalkRow]:
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("Crosswalk must be UTF-8") from error
     rows: list[CrosswalkRow] = []
-    with path.open("r", encoding="utf-8", newline="") as handle:
+    with io.StringIO(text, newline="") as handle:
         reader = csv.DictReader(handle)
         fieldnames = [name.strip() if name else "" for name in reader.fieldnames or []]
         if tuple(fieldnames) != CROSSWALK_FIELDS:

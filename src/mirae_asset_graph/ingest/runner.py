@@ -23,14 +23,14 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from ..model import file_sha256
-from .manifest import ManifestEntry, Phase, Status, append_entry, batch_id, is_loaded
+from .manifest import ManifestEntry, Phase, Status, append_entry, batch_id, is_loaded, read_manifest
 from .records import HoldingsRecord, read_jsonl
 
 T = TypeVar("T")
@@ -48,6 +48,8 @@ _EPOCH_WINDOW = date(1970, 1, 1)
 # chunks before ingestion refuses to mint further indexes.
 _MAX_CHUNKS_PER_DOCUMENT = 1 << 32
 
+_TARGET_COMPLETION_NAMESPACE = "mirae-asset-graph:ingest:target-completion:v1"
+
 # scheme://user:password@host -> scheme://<redacted>@host
 _URL_CREDENTIALS = re.compile(r"(?i)\b([a-z][a-z0-9+.\-]*://)([^\s/@:]+):([^\s/@]+)@")
 # ?password=... / &token=... query parameters
@@ -60,6 +62,7 @@ class HoldingsAdapter(Protocol[T]):
     """Structural contract satisfied by NPortAdapter and ManagerBasketAdapter."""
 
     source: str
+    raw_root: Path
 
     def discover(
         self,
@@ -146,6 +149,7 @@ class IngestRunner(Generic[T]):
         normalized_root: Path,
         batch_size: int = MAX_BATCH_SIZE,
         continue_on_error: bool = True,
+        document_id: Callable[[T], str] | None = None,
     ) -> None:
         if isinstance(batch_size, bool) or not isinstance(batch_size, int):
             raise ValueError(
@@ -161,6 +165,7 @@ class IngestRunner(Generic[T]):
         self.normalized_root: Path = Path(normalized_root)
         self.batch_size: int = batch_size
         self.continue_on_error: bool = continue_on_error
+        self.document_id: Callable[[T], str] = document_id or _default_document_id
 
     def run(
         self,
@@ -207,6 +212,9 @@ class IngestRunner(Generic[T]):
 
     def _process_target(self, run_id: str, target: T, counters: _RunCounters) -> None:
         """Fetch, normalize, and load one target, appending manifest entries."""
+        target_document_id: object = self.document_id(target)
+        if not isinstance(target_document_id, str) or not target_document_id:
+            raise ValueError("IngestRunner: document_id must return a nonempty string")
         now = _utc_now()
         self._append(run_id, target, Phase.DISCOVERED, Status.PENDING, now)
 
@@ -239,6 +247,7 @@ class IngestRunner(Generic[T]):
         )
 
         records = read_jsonl(records_path)
+        normalized_sha256 = file_sha256(records_path)
         groups: dict[tuple[date, str, str], list[HoldingsRecord]] = {}
         for record in records:
             key = (record.as_of, record.source_url, record.source_document_id)
@@ -248,16 +257,19 @@ class IngestRunner(Generic[T]):
         # records in normalized-file order inside each group. Chunk ordinals
         # run per (as_of, document) across that sorted traversal, so two
         # source_url groups of one document never share a batch index.
-        next_ordinal: dict[tuple[date, str], int] = {}
-        for as_of, source_url, source_document_id in sorted(groups):
-            group = groups[(as_of, source_url, source_document_id)]
+        for as_of, source_url, group_document_id in sorted(groups):
+            group = groups[(as_of, source_url, group_document_id)]
             for offset in range(0, len(group), self.batch_size):
                 chunk = group[offset : offset + self.batch_size]
-                ordinal_key = (as_of, source_document_id)
-                ordinal = next_ordinal.get(ordinal_key, 0)
-                next_ordinal[ordinal_key] = ordinal + 1
-                shard_batch_id = batch_id(
-                    self.adapter.source, as_of, _shard_batch_index(source_document_id, ordinal)
+                end = offset + len(chunk)
+                shard_batch_id = immutable_shard_batch_id(
+                    self.adapter.source,
+                    normalized_sha256,
+                    as_of,
+                    group_document_id,
+                    source_url,
+                    offset,
+                    end,
                 )
                 if is_loaded(self.adapter.source, as_of, shard_batch_id, self.manifest_root):
                     counters.skipped_batches += 1
@@ -283,6 +295,27 @@ class IngestRunner(Generic[T]):
                     batch_id_value=shard_batch_id,
                     artifact_sha256=artifact_sha256,
                 )
+
+        completion_batch_id = target_completion_batch_id(target_document_id)
+        target_as_of = _target_window_date(target)
+        if not _has_target_completion(
+            self.adapter.source,
+            target_as_of,
+            completion_batch_id,
+            self.manifest_root,
+        ):
+            completed_at = _utc_now()
+            self._append(
+                run_id,
+                target,
+                Phase.VALIDATED,
+                Status.LOADED,
+                completed_at,
+                completed_at,
+                window_date=target_as_of,
+                batch_id_value=completion_batch_id,
+                artifact_sha256=artifact_sha256,
+            )
 
     def _append(
         self,
@@ -336,6 +369,29 @@ def _document_base_index(source_document_id: str) -> int:
     return int(digest, 16) << 32
 
 
+def target_completion_batch_id(source_document_id: str) -> str:
+    """Return the stable, source-document-aware identity of target completion."""
+    raw = f"{_TARGET_COMPLETION_NAMESPACE}|{source_document_id}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def immutable_shard_batch_id(
+    source: str,
+    normalized_sha256: str,
+    as_of: date,
+    source_document_id: str,
+    source_url: str,
+    start: int,
+    end: int,
+) -> str:
+    """Stable shard identity bound to exact normalized content and row range."""
+    raw = (
+        f"load-shard-v2|{source}|{normalized_sha256}|{as_of.isoformat()}|"
+        f"{source_document_id}|{source_url}|{start}|{end}"
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def _shard_batch_index(source_document_id: str, ordinal: int) -> int:
     """Batch index for one chunk: document base with the ordinal in the low bits.
 
@@ -353,6 +409,42 @@ def _shard_batch_index(source_document_id: str, ordinal: int) -> int:
 def _target_key(target: object) -> str:
     """Stable manifest batch_id for pre-load phases: sha256 of ``repr(target)``."""
     return hashlib.sha256(repr(target).encode("utf-8")).hexdigest()
+
+
+def _default_document_id(target: object) -> str:
+    """Derive document identity for built-in targets and structural test targets."""
+    accession = getattr(target, "accession", None)
+    if isinstance(accession, str) and accession:
+        return accession
+
+    manager_code = getattr(target, "manager_code", None)
+    fund_code = getattr(target, "fund_code", None)
+    as_of = getattr(target, "as_of", None)
+    if (
+        isinstance(manager_code, str)
+        and manager_code
+        and isinstance(fund_code, str)
+        and fund_code
+        and isinstance(as_of, date)
+    ):
+        target_date = as_of.date() if isinstance(as_of, datetime) else as_of
+        return f"{manager_code}:{fund_code}:{target_date.isoformat()}"
+
+    source_document_id = getattr(target, "source_document_id", None)
+    if isinstance(source_document_id, str) and source_document_id:
+        return source_document_id
+    raise TypeError(f"IngestRunner: cannot derive document id for {type(target).__name__}")
+
+
+def _has_target_completion(source: str, as_of: date, completion_batch_id: str, root: Path) -> bool:
+    """Return whether the exact target-level completion marker already exists."""
+    return any(
+        entry.phase is Phase.VALIDATED
+        and entry.status is Status.LOADED
+        and entry.window_date == as_of
+        and entry.batch_id == completion_batch_id
+        for entry in read_manifest(source, root)
+    )
 
 
 def _target_window_date(target: object) -> date:

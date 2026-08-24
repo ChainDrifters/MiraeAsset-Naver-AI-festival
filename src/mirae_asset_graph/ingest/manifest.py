@@ -16,6 +16,7 @@ class Phase(str, Enum):
     DISCOVERED = "discovered"
     FETCHED = "fetched"
     NORMALIZED = "normalized"
+    READY = "ready"
     LOADED = "loaded"
     VALIDATED = "validated"
     FAILED = "failed"
@@ -24,6 +25,7 @@ class Phase(str, Enum):
 class Status(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
+    READY = "ready"
     LOADED = "loaded"
     FAILED = "failed"
 
@@ -40,6 +42,24 @@ class ManifestEntry:
     started_at: datetime | None = None
     finished_at: datetime | None = None
     error: str | None = None
+    raw_path: str | None = None
+    normalized_path: str | None = None
+    quarantine_path: str | None = None
+    normalized_sha256: str | None = None
+    quarantine_sha256: str | None = None
+    artifact_bytes: int | None = None
+    normalized_bytes: int | None = None
+    quarantine_bytes: int | None = None
+    normalized_count: int | None = None
+    quarantine_count: int | None = None
+    source_url: str | None = None
+    stable_target_id: str | None = None
+    source_document_id: str | None = None
+    published_at: datetime | None = None
+    retrieved_at: datetime | None = None
+    config_digest: str | None = None
+    crosswalk_sha256: str | None = None
+    normalization_input_digest: str | None = None
 
 
 def batch_id(source: str, window_date: date, batch_index: int) -> str:
@@ -85,7 +105,7 @@ def is_loaded(source: str, window_date: date, batch_id: str, root: Path = DEFAUL
     )
 
 
-def _to_json(entry: ManifestEntry) -> dict[str, str | None]:
+def _to_json(entry: ManifestEntry) -> dict[str, object]:
     return {
         "run_id": entry.run_id,
         "source": entry.source,
@@ -97,6 +117,24 @@ def _to_json(entry: ManifestEntry) -> dict[str, str | None]:
         "started_at": entry.started_at.isoformat() if entry.started_at else None,
         "finished_at": entry.finished_at.isoformat() if entry.finished_at else None,
         "error": entry.error,
+        "raw_path": entry.raw_path,
+        "normalized_path": entry.normalized_path,
+        "quarantine_path": entry.quarantine_path,
+        "normalized_sha256": entry.normalized_sha256,
+        "quarantine_sha256": entry.quarantine_sha256,
+        "artifact_bytes": entry.artifact_bytes,
+        "normalized_bytes": entry.normalized_bytes,
+        "quarantine_bytes": entry.quarantine_bytes,
+        "normalized_count": entry.normalized_count,
+        "quarantine_count": entry.quarantine_count,
+        "source_url": entry.source_url,
+        "stable_target_id": entry.stable_target_id,
+        "source_document_id": entry.source_document_id,
+        "published_at": entry.published_at.isoformat() if entry.published_at else None,
+        "retrieved_at": entry.retrieved_at.isoformat() if entry.retrieved_at else None,
+        "config_digest": entry.config_digest,
+        "crosswalk_sha256": entry.crosswalk_sha256,
+        "normalization_input_digest": entry.normalization_input_digest,
     }
 
 
@@ -112,6 +150,24 @@ def _from_json(values: Mapping[str, object]) -> ManifestEntry:
         started_at=_datetime_or_none(_optional_str(values, "started_at")),
         finished_at=_datetime_or_none(_optional_str(values, "finished_at")),
         error=_optional_str(values, "error"),
+        raw_path=_optional_str(values, "raw_path"),
+        normalized_path=_optional_str(values, "normalized_path"),
+        quarantine_path=_optional_str(values, "quarantine_path"),
+        normalized_sha256=_optional_str(values, "normalized_sha256"),
+        quarantine_sha256=_optional_str(values, "quarantine_sha256"),
+        artifact_bytes=_optional_int(values, "artifact_bytes"),
+        normalized_bytes=_optional_int(values, "normalized_bytes"),
+        quarantine_bytes=_optional_int(values, "quarantine_bytes"),
+        normalized_count=_optional_int(values, "normalized_count"),
+        quarantine_count=_optional_int(values, "quarantine_count"),
+        source_url=_optional_str(values, "source_url"),
+        stable_target_id=_optional_str(values, "stable_target_id"),
+        source_document_id=_optional_str(values, "source_document_id"),
+        published_at=_datetime_or_none(_optional_str(values, "published_at")),
+        retrieved_at=_datetime_or_none(_optional_str(values, "retrieved_at")),
+        config_digest=_optional_str(values, "config_digest"),
+        crosswalk_sha256=_optional_str(values, "crosswalk_sha256"),
+        normalization_input_digest=_optional_str(values, "normalization_input_digest"),
     )
 
 
@@ -132,4 +188,13 @@ def _optional_str(values: Mapping[str, object], key: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise ValueError(f"Manifest field must be a string or null: {key}")
+    return value
+
+
+def _optional_int(values: Mapping[str, object], key: str) -> int | None:
+    value = values.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Manifest field must be an integer or null: {key}")
     return value

@@ -1,0 +1,42 @@
+{
+  "source": "manager_basket",
+  "allowed_hosts": ["example.invalid"],
+  "targets": [
+    {
+      "manager_code": "synthetic-manager",
+      "fund_code": "fund-a",
+      "fund_isin": "US5007676944",
+      "source_url": "https://example.invalid/manager/fund-a/2026-01-11.csv",
+      "as_of": "2026-01-11",
+      "published_at": "2026-01-12T09:00:00+09:00",
+      "format_hint": "csv"
+    },
+    {
+      "manager_code": "synthetic-manager",
+      "fund_code": "fund-a",
+      "fund_isin": "US5007676944",
+      "source_url": "https://example.invalid/manager/fund-a/2026-04-11.xlsx",
+      "as_of": "2026-04-11",
+      "published_at": "2026-04-12T09:00:00+09:00",
+      "format_hint": "xlsx"
+    },
+    {
+      "manager_code": "synthetic-manager",
+      "fund_code": "fund-a",
+      "fund_isin": "US5007676944",
+      "source_url": "https://example.invalid/manager/fund-a/2026-07-11.csv",
+      "as_of": "2026-07-11",
+      "published_at": "2026-07-11T09:00:00+09:00",
+      "format_hint": "csv"
+    },
+    {
+      "manager_code": "synthetic-manager",
+      "fund_code": "fund-b",
+      "fund_isin": "KR7091160005",
+      "source_url": "https://example.invalid/manager/fund-b/2026-07-11.csv",
+      "as_of": "2026-07-11",
+      "published_at": "2026-07-11T10:00:00+09:00",
+      "format_hint": "csv"
+    }
+  ]
+}

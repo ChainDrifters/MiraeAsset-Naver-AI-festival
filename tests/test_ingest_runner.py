@@ -31,6 +31,7 @@ from mirae_asset_graph.ingest.runner import (
     HoldingsSink,
     IngestRunner,
     RunSummary,
+    target_completion_batch_id,
 )
 from mirae_asset_graph.model import file_sha256
 
@@ -67,6 +68,8 @@ def _record(
         identifier_method="source_isin",
         source_document_id=source_document_id,
         source_url=source_url,
+        evidence_basis="regulatory_filing",
+        source_row_id="position:1",
     )
 
 
@@ -215,6 +218,14 @@ def _loaded_entries(root: Path) -> list[ManifestEntry]:
     ]
 
 
+def _completion_entries(root: Path) -> list[ManifestEntry]:
+    return [
+        entry
+        for entry in read_manifest(SOURCE, root / "manifest")
+        if entry.status is Status.LOADED and entry.phase is Phase.VALIDATED
+    ]
+
+
 def test_successful_target_appends_all_phases_and_loads_exact_payload(tmp_path: Path) -> None:
     as_of = date(2026, 7, 11)
     source_url = "https://example.com/fund-a/2026-07-11.csv"
@@ -261,12 +272,16 @@ def test_successful_target_appends_all_phases_and_loads_exact_payload(tmp_path: 
         (Phase.FETCHED, Status.RUNNING),
         (Phase.NORMALIZED, Status.RUNNING),
         (Phase.LOADED, Status.LOADED),
+        (Phase.VALIDATED, Status.LOADED),
     ]
     assert all(entry.run_id == "run-1" for entry in entries)
     assert entries[1].artifact_sha256 == artifact_sha
     assert entries[2].artifact_sha256 == artifact_sha
     assert entries[3].window_date == as_of
     assert entries[3].artifact_sha256 == artifact_sha
+    assert entries[4].window_date == as_of
+    assert entries[4].batch_id == target_completion_batch_id(document_id)
+    assert entries[4].artifact_sha256 == artifact_sha
 
     assert read_jsonl(tmp_path / "normalized" / SOURCE / "fund-a.jsonl") == list(records)
     quarantine_path = tmp_path / "normalized" / SOURCE / "fund-a.quarantine.jsonl"
@@ -310,6 +325,9 @@ def test_501_records_same_as_of_load_as_two_capped_batches(tmp_path: Path) -> No
     assert len(loaded) == 2
     assert len({entry.batch_id for entry in loaded}) == 2
     assert {entry.window_date for entry in loaded} == {as_of}
+    completion = _completion_entries(tmp_path)
+    assert len(completion) == 1
+    assert completion[0].batch_id == target_completion_batch_id(document_id)
 
 
 def test_mixed_as_of_and_source_url_shards_are_grouped_deterministically(tmp_path: Path) -> None:
@@ -381,6 +399,7 @@ def test_rerun_skips_loaded_batches_without_sink_calls(tmp_path: Path) -> None:
     entries_after_second = read_manifest(SOURCE, tmp_path / "manifest")
     assert len(entries_after_second) == len(entries_after_first) + 3
     assert len(_loaded_entries(tmp_path)) == 1
+    assert len(_completion_entries(tmp_path)) == 1
 
 
 def test_two_documents_same_as_of_do_not_collide(tmp_path: Path) -> None:
@@ -432,6 +451,9 @@ def test_documents_sharing_first_eight_digest_hex_chars_stay_distinct(
         def hexdigest(self) -> str:
             return self._value
 
+        def update(self, data: bytes) -> None:
+            _ = data
+
     crafted = {
         document_a.encode("utf-8"): _CraftedDigest(digest_a),
         document_b.encode("utf-8"): _CraftedDigest(digest_b),
@@ -442,7 +464,7 @@ def test_documents_sharing_first_eight_digest_hex_chars_stay_distinct(
         match = crafted.get(data)
         if match is not None:
             return match
-        return cast("_Sha256Like", real_sha256(data))
+        return cast("_Sha256Like", cast(object, real_sha256(data)))
 
     monkeypatch.setattr(hashlib, "sha256", fake_sha256)
     specs = [
@@ -554,6 +576,7 @@ def test_normalize_failure_appends_failed_and_continues(tmp_path: Path) -> None:
         (Phase.FETCHED, Status.RUNNING),
         (Phase.NORMALIZED, Status.RUNNING),
         (Phase.LOADED, Status.LOADED),
+        (Phase.VALIDATED, Status.LOADED),
     ]
     failed = entries[2]
     assert failed.error is not None
@@ -594,7 +617,7 @@ def test_continue_on_error_false_reraises_and_stops(tmp_path: Path) -> None:
     assert entries[2].error == "RuntimeError: normalize exploded"
 
 
-def test_empty_normalized_records_make_no_sink_call(tmp_path: Path) -> None:
+def test_empty_normalized_records_make_no_sink_call_and_complete_target(tmp_path: Path) -> None:
     as_of = date(2026, 7, 11)
     spec = FakeSpec(FakeTarget("fund-empty", as_of, "https://example.com/empty.csv", "fake:empty:doc"))
     _adapter, sink, runner = _make_runner(tmp_path, [spec])
@@ -611,7 +634,147 @@ def test_empty_normalized_records_make_no_sink_call(tmp_path: Path) -> None:
         (Phase.DISCOVERED, Status.PENDING),
         (Phase.FETCHED, Status.RUNNING),
         (Phase.NORMALIZED, Status.RUNNING),
+        (Phase.VALIDATED, Status.LOADED),
     ]
+    assert entries[-1].window_date == as_of
+    assert entries[-1].batch_id == target_completion_batch_id("fake:empty:doc")
+    assert entries[-1].artifact_sha256 == file_sha256(
+        tmp_path / "raw" / SOURCE / "fund-empty.raw"
+    )
+
+
+def test_partial_target_failure_keeps_loaded_shard_without_completion(tmp_path: Path) -> None:
+    as_of = date(2026, 8, 21)
+    source_url = "https://example.com/partial.csv"
+    document_id = "fake:partial:doc"
+    records = tuple(
+        _record(as_of=as_of, source_url=source_url, source_document_id=document_id)
+        for _ in range(3)
+    )
+    spec = FakeSpec(FakeTarget("partial", as_of, source_url, document_id), rows=records)
+
+    class FailSecondShardSink(FakeSink):
+        def load_holdings_rows(
+            self,
+            rows: Iterable[Mapping[str, object]],
+            *,
+            source: str,
+            source_url: str,
+            artifact_sha256: str,
+            artifact_bytes: int,
+            run_id: str,
+            retrieved_at: datetime,
+        ) -> dict[str, int]:
+            if len(self.calls) == 1:
+                raise RuntimeError("second shard failed")
+            return super().load_holdings_rows(
+                rows,
+                source=source,
+                source_url=source_url,
+                artifact_sha256=artifact_sha256,
+                artifact_bytes=artifact_bytes,
+                run_id=run_id,
+                retrieved_at=retrieved_at,
+            )
+
+    sink = FailSecondShardSink()
+    _adapter, _sink, runner = _make_runner(tmp_path, [spec], sink=sink, batch_size=2)
+
+    summary = runner.run("run-1")
+
+    assert summary.loaded_rows == 2
+    assert summary.failed_targets == 1
+    assert len(_loaded_entries(tmp_path)) == 1
+    assert _completion_entries(tmp_path) == []
+    assert read_manifest(SOURCE, tmp_path / "manifest")[-1].phase is Phase.FAILED
+
+
+def test_partial_resume_with_different_batch_size_has_no_omission_or_incorrect_skip(
+    tmp_path: Path,
+) -> None:
+    as_of = date(2026, 7, 11)
+    source_url = "https://example.com/resume.csv"
+    document_id = "fake:resume:doc"
+    records = tuple(
+        _record(
+            as_of=as_of,
+            source_url=source_url,
+            source_document_id=document_id,
+            constituent_name=f"holding-{index}",
+        )
+        for index in range(5)
+    )
+    spec = FakeSpec(FakeTarget("resume", as_of, source_url, document_id), rows=records)
+
+    class FailSecondShardSink(FakeSink):
+        def load_holdings_rows(
+            self,
+            rows: Iterable[Mapping[str, object]],
+            *,
+            source: str,
+            source_url: str,
+            artifact_sha256: str,
+            artifact_bytes: int,
+            run_id: str,
+            retrieved_at: datetime,
+        ) -> dict[str, int]:
+            if len(self.calls) == 1:
+                raise RuntimeError("stop after first shard")
+            return super().load_holdings_rows(
+                rows,
+                source=source,
+                source_url=source_url,
+                artifact_sha256=artifact_sha256,
+                artifact_bytes=artifact_bytes,
+                run_id=run_id,
+                retrieved_at=retrieved_at,
+            )
+
+    first_sink = FailSecondShardSink()
+    _adapter, _sink, first_runner = _make_runner(
+        tmp_path, [spec], sink=first_sink, batch_size=2
+    )
+    first = first_runner.run("run-batch-2")
+    assert first.loaded_rows == 2
+    assert first.failed_targets == 1
+
+    _adapter, second_sink, second_runner = _make_runner(tmp_path, [spec], batch_size=3)
+    second = second_runner.run("run-batch-3")
+    assert second.loaded_rows == 5
+    assert second.skipped_batches == 0
+    assert {
+        str(row["constituent_name"])
+        for call in second_sink.calls
+        for row in call.rows
+    } == {f"holding-{index}" for index in range(5)}
+
+    _adapter, third_sink, third_runner = _make_runner(tmp_path, [spec], batch_size=3)
+    third = third_runner.run("run-batch-3-rerun")
+    assert third.loaded_rows == 0
+    assert third.skipped_batches == 2
+    assert third_sink.calls == []
+
+
+def test_completion_id_and_document_callback_are_deterministic(tmp_path: Path) -> None:
+    expected = hashlib.sha256(
+        b"mirae-asset-graph:ingest:target-completion:v1|callback:document"
+    ).hexdigest()
+    assert target_completion_batch_id("callback:document") == expected
+    assert target_completion_batch_id("callback:document") == expected
+    assert target_completion_batch_id("other:document") != expected
+
+    target = FakeTarget("callback", date(2026, 8, 21), "https://example.com/empty.csv", "ignored")
+    adapter = FakeAdapter((FakeSpec(target),), tmp_path / "raw")
+    runner = IngestRunner(
+        adapter,
+        FakeSink(),
+        tmp_path / "manifest",
+        tmp_path / "normalized",
+        document_id=lambda _selected: "callback:document",
+    )
+
+    assert runner.run("run-1").failed_targets == 0
+    assert [entry.batch_id for entry in _completion_entries(tmp_path)] == [expected]
 
 
 @pytest.mark.parametrize("bad_size", [0, -1, 501, 1.5, True, "500", None])
@@ -655,12 +818,14 @@ def test_real_adapters_and_loader_satisfy_the_protocols_structurally(tmp_path: P
         raw_root=tmp_path / "raw-nport",
         resolver=resolver,
         user_agent="ops@example.com",
+        refresh=False,
     )
     basket = ManagerBasketAdapter(
         targets=(),
         raw_root=tmp_path / "raw-basket",
         resolver=resolver,
         user_agent="ops@example.com",
+        refresh=False,
     )
     assert isinstance(nport, HoldingsAdapter)
     assert isinstance(basket, HoldingsAdapter)

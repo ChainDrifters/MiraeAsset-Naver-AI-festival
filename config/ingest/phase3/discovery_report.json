@@ -1,0 +1,95 @@
+{
+  "reviewed_at": "2026-08-24T00:00:00+09:00",
+  "policy_window": {
+    "as_of_start": "2026-01-11",
+    "as_of_end": "2026-07-11",
+    "published_at_cutoff": "2026-07-11T23:59:59+00:00"
+  },
+  "products": [
+    {
+      "product": "KraneShares KSTR (US)",
+      "code": "KSTR",
+      "decision": "included",
+      "source": "sec_nport",
+      "fund_isin": "US5007676944",
+      "accession": "0002048251-26-004699",
+      "as_of": "2026-03-31",
+      "filing_date": "2026-05-29",
+      "metadata_extract": "config/ingest/phase3/sec_metadata_extract.json",
+      "metadata_source_sha256": "1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd",
+      "evidence_urls": [
+        "https://data.sec.gov/submissions/CIK0001547576.json",
+        "https://www.sec.gov/Archives/edgar/data/1547576/000204825126004699/primary_doc.xml",
+        "https://kraneshares.com/etf/kstr/"
+      ],
+      "note": "SEC metadata provides a filing date, not a filing timestamp. The target normalizes that date to 00:00:00 UTC and does not claim an observed intraday publication time."
+    },
+    {
+      "product": "KraneShares KSTR UCITS",
+      "code": null,
+      "decision": "excluded",
+      "reason_codes": ["jurisdiction_adapter_absent", "no_official_holdings_document"],
+      "evidence_urls": ["https://kraneshares.eu/etf/kstrln/"]
+    },
+    {
+      "product": "VanEck China Semiconductor ETF",
+      "code": "SMHC",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "no_official_holdings_document"],
+      "evidence_urls": ["https://www.vaneck.com/us/en/investments/china-semiconductor-etf-smhc"]
+    },
+    {
+      "product": "Global X China Semiconductor ETF",
+      "code": "HKEX 3191/9191",
+      "decision": "excluded",
+      "reason_codes": ["jurisdiction_adapter_absent", "archive_unavailable"],
+      "evidence_urls": ["https://www.globalxetfs.com.hk/funds/global-x-china-semiconductor-etf/"]
+    },
+    {
+      "product": "PLUS K방산",
+      "code": "449450",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "archive_unavailable", "krx_automation_prohibited"],
+      "evidence_urls": ["https://www.plusetf.co.kr/product/detail?n=006192"]
+    },
+    {
+      "product": "PLUS 우주항공",
+      "code": "421320",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "archive_unavailable", "krx_automation_prohibited"],
+      "evidence_urls": ["https://www.plusetf.co.kr/product/detail?n=006344"]
+    },
+    {
+      "product": "PLUS 글로벌방산",
+      "code": "496770",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "archive_unavailable", "krx_automation_prohibited"],
+      "evidence_urls": ["https://www.plusetf.co.kr/product/detail?n=006377"]
+    },
+    {
+      "product": "PLUS 글로벌HBM반도체",
+      "code": "442580",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "archive_unavailable", "krx_automation_prohibited"],
+      "evidence_urls": ["https://www.plusetf.co.kr/product/detail?n=006236"]
+    },
+    {
+      "product": "PLUS 일본반도체소부장",
+      "code": "464920",
+      "decision": "excluded",
+      "reason_codes": ["fund_identifier_unverified", "archive_unavailable", "krx_automation_prohibited"],
+      "evidence_urls": ["https://www.plusetf.co.kr/product/detail?n=006366"]
+    }
+  ],
+  "additional_verified_documents": [
+    {
+      "product": "KraneShares KSTR (US)",
+      "source": "manager_basket",
+      "url": "https://kraneshares.com/csv/06_30_2026_kstr_holdings.csv",
+      "as_of": "2026-06-30",
+      "status": "not_configured",
+      "reason_codes": ["publication_timestamp_unverified", "unsupported_document_profile"],
+      "note": "The official CSV contains Cambricon at 9.90%, but its exact publication timestamp is not stated and its title/header layout needs a reviewed parser profile."
+    }
+  ]
+}

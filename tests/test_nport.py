@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import email.message
+import hashlib
+import socket
 import json
 import time
 import urllib.error
@@ -14,6 +16,7 @@ from typing import cast
 import pytest
 
 import mirae_asset_graph.ingest.nport as nport_module
+import mirae_asset_graph.ingest.http_fetch as http_fetch
 from mirae_asset_graph.ingest.crosswalk import CROSSWALK_FIELDS, CrosswalkRow
 from mirae_asset_graph.ingest.nport import NPortAdapter, NPortTarget
 from mirae_asset_graph.ingest.records import read_jsonl
@@ -30,6 +33,15 @@ AS_OF = date(2026, 6, 30)
 PUBLISHED_AT = datetime(2026, 8, 1, 12, 0, 0)
 
 DOCUMENT_TOTAL_VAL_USD = 950000.0
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        http_fetch,
+        "_resolve_host",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))],
+    )
 
 
 def _target(
@@ -59,12 +71,14 @@ def _adapter(
     window_start: date | None = None,
     window_end: date | None = None,
     cutoff: datetime | None = None,
+    refresh: bool = True,
 ) -> NPortAdapter:
     return NPortAdapter(
         targets=targets if targets is not None else [_target()],
         raw_root=tmp_path / "raw",
         resolver=resolver if resolver is not None else IdentifierResolver([]),
         user_agent=user_agent,
+        refresh=refresh,
         max_requests_per_second=max_requests_per_second,
         retry_count=retry_count,
         window_start=window_start,
@@ -79,6 +93,9 @@ class _FakeResponse:
 
     def read(self) -> bytes:
         return self._payload
+
+    def geturl(self) -> str:
+        return SOURCE_URL
 
     def __enter__(self) -> _FakeResponse:
         return self
@@ -175,18 +192,16 @@ def test_discover_filters_window_and_cutoff(tmp_path: Path) -> None:
     assert configured.discover() == [q1, q2]
 
 
-def test_fetch_cache_hit_makes_no_network_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fetch_requires_explicit_refresh_and_makes_no_network_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     def unreachable(request: object, timeout: object = None) -> object:
         raise AssertionError("a cached raw file must not trigger urlopen")
 
-    monkeypatch.setattr(urllib.request, "urlopen", unreachable)
-    adapter = _adapter(tmp_path)
-    cached = adapter.raw_root / "sec_nport" / f"{ACCESSION}.xml"
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_bytes(b"<edgarSubmission>already stored</edgarSubmission>")
-
-    assert adapter.fetch(_target()) == cached
-    assert cached.read_bytes() == b"<edgarSubmission>already stored</edgarSubmission>"
+    monkeypatch.setattr(http_fetch, "_open_once", unreachable)
+    adapter = _adapter(tmp_path, refresh=False)
+    with pytest.raises(ValueError, match="explicit refresh"):
+        adapter.fetch(_target())
 
 
 def test_fetch_refetches_when_cached_file_is_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,12 +209,12 @@ def test_fetch_refetches_when_cached_file_is_empty(tmp_path: Path, monkeypatch: 
     cached = adapter.raw_root / "sec_nport" / f"{ACCESSION}.xml"
     cached.parent.mkdir(parents=True, exist_ok=True)
     cached.write_bytes(b"")
-    monkeypatch.setattr(
-        urllib.request, "urlopen", lambda request, timeout=None: _FakeResponse(FIXTURE_BYTES)
-    )
+    monkeypatch.setattr(http_fetch, "_open_once", lambda request, timeout=None: _FakeResponse(FIXTURE_BYTES))
 
-    assert adapter.fetch(_target()) == cached
-    assert cached.read_bytes() == FIXTURE_BYTES
+    result = adapter.fetch(_target())
+    digest = hashlib.sha256(FIXTURE_BYTES).hexdigest()
+    assert result == adapter.raw_root / "sec_nport" / ACCESSION / f"{digest}.xml"
+    assert result.read_bytes() == FIXTURE_BYTES
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 502, 503, 504])
@@ -216,14 +231,15 @@ def test_fetch_retries_transient_failure_then_writes_atomically(
             raise _http_error(status_code)
         return _FakeResponse(FIXTURE_BYTES)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch, "_open_once", fake_urlopen)
     sleep_recorder = _SleepRecorder()
     monkeypatch.setattr(time, "sleep", sleep_recorder)
 
     adapter = _adapter(tmp_path, max_requests_per_second=1000.0)
     raw_path = adapter.fetch(_target())
 
-    assert raw_path == adapter.raw_root / "sec_nport" / f"{ACCESSION}.xml"
+    digest = hashlib.sha256(FIXTURE_BYTES).hexdigest()
+    assert raw_path == adapter.raw_root / "sec_nport" / ACCESSION / f"{digest}.xml"
     assert raw_path.read_bytes() == FIXTURE_BYTES
     assert len(calls) == 2
     assert 1.0 in sleep_recorder.calls
@@ -244,7 +260,7 @@ def test_fetch_raises_non_retryable_status_without_sleeping(
         calls.append(404)
         raise _http_error(404)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch, "_open_once", fake_urlopen)
     sleep_recorder = _SleepRecorder()
     monkeypatch.setattr(time, "sleep", sleep_recorder)
 
@@ -265,8 +281,10 @@ def test_normalize_yields_two_records_and_three_quarantined(tmp_path: Path) -> N
     )
 
     assert (record_count, quarantine_count) == (2, 3)
-    assert records_path == output_dir / "sec_nport" / f"{ACCESSION}.jsonl"
-    assert quarantine_path == output_dir / "sec_nport" / f"{ACCESSION}.quarantine.jsonl"
+    assert records_path.parent == output_dir / "sec_nport" / ACCESSION / "records"
+    assert records_path.suffix == ".jsonl" and len(records_path.stem) == 64
+    assert quarantine_path.parent == output_dir / "sec_nport" / ACCESSION / "quarantine"
+    assert quarantine_path.name.endswith(".quarantine.jsonl")
 
     records = read_jsonl(records_path)
     assert [record.constituent_isin for record in records] == ["US0000000001", "US0000000003"]
@@ -336,6 +354,47 @@ def test_normalize_accepts_period_of_report_tag(tmp_path: Path) -> None:
     assert (record_count, quarantine_count) == (2, 3)
 
 
+def test_normalize_supports_real_sec_nested_attributes_and_rep_pd_date(tmp_path: Path) -> None:
+    real_schema = tmp_path / "real-schema.xml"
+    real_schema.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<edgarSubmission xmlns="http://www.sec.gov/edgar/nport">
+  <formData>
+    <genInfo><repPdDate>2026-06-30</repPdDate></genInfo>
+    <fundInfo>
+      <invstOrSec>
+        <name>Cambricon Technologies Corp Ltd</name>
+        <cusip>N/A</cusip>
+        <identifiers><isin value="CNE1000041R8"/></identifiers>
+        <balance>58154</balance>
+        <currencyConditional curCd="CNY" exchangeRt="6.9"/>
+        <valUSD>8276801.08</valUSD><pctVal>10.208</pctVal>
+      </invstOrSec>
+      <invstOrSec>
+        <name>Unresolved Placeholder</name>
+        <cusip> N/A </cusip>
+        <identifiers><isin value="N/A"/></identifiers>
+        <balance>1</balance><valUSD>1</valUSD><pctVal>0.01</pctVal>
+      </invstOrSec>
+    </fundInfo>
+  </formData>
+</edgarSubmission>
+""",
+        encoding="utf-8",
+    )
+    adapter = _adapter(tmp_path)
+    records_path, quarantine_path, record_count, quarantine_count = adapter.normalize(
+        _target(), real_schema, tmp_path / "normalized-real"
+    )
+    assert (record_count, quarantine_count) == (1, 1)
+    record = read_jsonl(records_path)[0]
+    assert record.constituent_isin == "CNE1000041R8"
+    assert record.source_currency == "CNY"
+    quarantine = _read_quarantine(quarantine_path)[0]
+    assert quarantine["source_identifier_type"] is None
+    assert quarantine["source_identifier_value"] is None
+
+
 def test_normalize_rerun_is_deterministic(tmp_path: Path) -> None:
     adapter = _adapter(tmp_path)
     output_dir = tmp_path / "normalized"
@@ -365,11 +424,15 @@ def test_normalize_resolves_cusip_through_reviewed_crosswalk(tmp_path: Path) -> 
             "reviewed_at": "2026-08-21",
         }
     )
+    output_dir = tmp_path / "out"
+    baseline = _adapter(tmp_path).normalize(_target(), FIXTURE, output_dir)
+    baseline_records = baseline[0].read_bytes()
+    baseline_quarantine = baseline[1].read_bytes()
     resolver = IdentifierResolver([CrosswalkRow(**values)])
     adapter = _adapter(tmp_path, resolver=resolver)
 
     records_path, _, record_count, quarantine_count = adapter.normalize(
-        _target(), FIXTURE, tmp_path / "out"
+        _target(), FIXTURE, output_dir
     )
 
     assert (record_count, quarantine_count) == (3, 2)
@@ -379,6 +442,9 @@ def test_normalize_resolves_cusip_through_reviewed_crosswalk(tmp_path: Path) -> 
     assert two.identifier_method == "crosswalk"
     assert two.weight == pytest.approx(0.25)
     assert two.weight_source == "source_published"
+    assert records_path != baseline[0]
+    assert baseline[0].read_bytes() == baseline_records
+    assert baseline[1].read_bytes() == baseline_quarantine
 
 
 def test_nport_module_does_not_import_neo4j() -> None:

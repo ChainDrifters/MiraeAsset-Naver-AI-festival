@@ -46,7 +46,7 @@ planned work; their order roughly follows implementation priority.
 
 - [x] Implement the source-acquisition core: adapter contract, append-only run
       manifests, deterministic batches, checksums, retries, cutoff filtering,
-      quarantine, and resumable loads.
+      quarantine, offline artifact verification, and resumable loads.
 - [x] Implement SEC N-PORT XML and Korean manager-published CSV/XLSX basket
       adapters with offline fixtures and source-specific access controls.
 - [ ] Implement live target discovery, archived-file collection, and the
@@ -107,7 +107,7 @@ planned work; their order roughly follows implementation priority.
 - [ ] Add service observability, secrets handling, source-health reporting, and
       a reproducible production deployment.
 
-Current test baseline: **106 passed and 2 environment-gated integration tests
+Current test baseline: **183 passed and 2 environment-gated integration tests
 skipped** without a live test Neo4j URI.
 
 ## Current external-ingestion status
@@ -126,18 +126,29 @@ Implemented:
   retry/rate-limit policy, deterministic JSONL output, and quarantine;
 - a resumable `IngestRunner` that shards by source document and as-of date,
   caps graph batches at 500 rows, and records append-only manifest state; and
+- a production-safe `mirae-ingest` CLI that separates `collect`,
+  `verify-collection`, and `load`; collection creates `READY` artifacts without
+  importing Neo4j, while loading re-verifies them and requires explicit staging
+  write authorization; and
+- a reviewed real KSTR SEC N-PORT target (`2026-03-31`), with an immutable raw
+  XML artifact, 51 verified normalized positions, zero quarantined positions,
+  and a successful idempotent load into a disposable local Neo4j staging
+  container; and
 - secret scanning, proxy-connect checks, rsync/checksum transfer tooling, and
-  106 passing offline tests.
+  183 passing offline tests.
 
 Known blockers and unfinished work:
 
-- the OpenDART key exposed during planning must be revoked; its replacement
-  belongs only in the git-ignored `.env`;
-- `NEO4J_PASSWORD` is required to run the approved proxy read/write probe;
+- the current local OpenDART key was explicitly authorized by the user on
+  2026-08-24 and remains only in the git-ignored `.env`; rotation is still
+  recommended because it was previously exposed;
+- separate authorization and credentials are still required before loading the
+  verified staging bundle into the Yeongmin Neo4j database;
 - Tailscale SSH/rsync parameters are required for raw-artifact transfer;
 - `xlsx_data/` is absent from this checkout; and
-- live target discovery/backfill CLI, OpenDART control ingestion, disclosure
-  passages, theme history, and golden answerability tests are not implemented.
+- target coverage beyond the first KSTR N-PORT filing, OpenDART control
+  ingestion, disclosure passages, theme history, and golden answerability tests
+  are not implemented.
 
 Investment recommendation, suitability judgment, customer profiling, and
 recommendation scoring are explicitly out of scope. Objective filtering,
@@ -178,8 +189,8 @@ Neo4j: source -> canonical -> observation -> ontology
             validation + Cypher
 ```
 
-Implemented external-ingestion path (live target configuration/backfill still
-pending):
+Implemented external-ingestion path (coverage beyond the first KSTR target and
+any Yeongmin graph load remain pending):
 
 ```text
 official raw source
@@ -188,11 +199,34 @@ official raw source
 source adapter -> immutable raw artifact + checksum
         |
         v
-normalized JSONL + quarantine + append-only manifest
+normalized JSONL + quarantine + append-only READY manifest
         |
         v
-resumable runner -> bounded MERGE batches -> Neo4j portfolio/provenance graph
+offline checksum/count/identity verification
+        |
+        v
+explicitly authorized load -> bounded MERGE batches -> Neo4j portfolio graph
 ```
+
+The production target policy accepts only `sec_nport` and `manager_basket`,
+hard-blocks KRX acquisition identifiers and URLs, and fixes the inclusive
+as-of window to 2026-01-11 through 2026-07-11 with publication cutoff
+2026-07-11T23:59:59Z. CLI bounds may narrow but cannot widen that policy.
+One real KSTR N-PORT filing has been collected and written to disposable local
+Neo4j staging. No Yeongmin Neo4j write has been performed.
+Artifact verification rejects absolute paths, traversal, escapes, and symlinks,
+then hashes and parses the same in-memory normalized bytes. This protects the
+offline handoff boundary, but cannot defend against a malicious same-user local
+process replacing files during the final resolve/read system-call interval.
+Each READY artifact and load range is also bound to both the deterministic
+target-config digest and the exact crosswalk file SHA-256. Verification and
+loading therefore require the same `--crosswalk`; a changed crosswalk requires
+recollection and selects its newly content-addressed normalized output without
+invalidating older immutable artifacts.
+Fetches also resolve and reject non-public IPv4/IPv6 destinations immediately
+before every initial or redirected request. The standard TLS client resolves
+again when connecting, so DNS rebinding between validation and connection
+remains a residual risk until IP-pinned TLS transport is implemented.
 
 Planned query path:
 

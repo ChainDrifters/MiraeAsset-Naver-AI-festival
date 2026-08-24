@@ -1,0 +1,13 @@
+{
+  "source_url": "https://data.sec.gov/submissions/CIK0001547576.json",
+  "source_sha256": "1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd",
+  "registrant_name": "Krane Shares Trust",
+  "cik": "0001547576",
+  "filing": {
+    "accessionNumber": "0002048251-26-004699",
+    "form": "NPORT-P",
+    "filingDate": "2026-05-29",
+    "reportDate": "2026-03-31",
+    "primaryDocument": "xslFormNPORT-P_X01/primary_doc.xml"
+  }
+}

@@ -23,6 +23,40 @@ data is documented separately in
 
 The load completed successfully and is idempotent for the same snapshot.
 
+### External holdings local staging load (2026-08-24)
+
+The first reviewed external target was collected separately from the historical
+XLSX load and written only to a disposable local Neo4j 2026.06.0 container. The
+Yeongmin Neo4j database was not modified.
+
+| Metric | Result |
+|---|---:|
+| Product | KSTR (`US5007676944`) |
+| SEC accession | `0002048251-26-004699` |
+| Holdings date | 2026-03-31 |
+| Raw XML bytes | 68,120 |
+| Raw SHA-256 | `e3dc9a6b251d00fd3ae90eef543500cd28b1c29aae1b3ce7a2abedb872721f94` |
+| Normalized positions | 51 |
+| Quarantined positions | 0 |
+| Normalized SHA-256 | `ea6a9df8ebbaffd4b257555dec037bf58de79f9387bdbe2cc6deddbf1fabc29b` |
+| Portfolio snapshots | 1 |
+| External artifacts | 1 |
+
+All 51 staging positions carried source-document, source-URL,
+`evidenceBasis`, and source-row provenance. Cambricon
+(`CNE1000041R8`) was present with source-published weight
+`0.102080061806`, quantity `58,154`, currency `CNY`, and market value
+`8,276,801.08`. Repeating the same load produced `loaded_rows=0` and
+`skipped_batches=1`; graph counts remained one snapshot and 51 positions.
+
+Runtime artifacts and manifests are kept under git-ignored `var/ingest/`.
+The reviewed target and discovery evidence are tracked under
+`config/ingest/phase3/` and `docs/phase3-target-discovery.md`.
+The SEC submissions metadata response used for the filing date is retained with
+SHA-256 `1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd`;
+its filing-specific extract is tracked in
+`config/ingest/phase3/sec_metadata_extract.json`.
+
 | Metric | Loaded |
 |---|---:|
 | Source rows | 145,393 |

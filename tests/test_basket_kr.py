@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import email.message
+import hashlib
+import socket
 import json
 import time
 import urllib.error
@@ -15,6 +17,7 @@ import pytest
 from openpyxl import Workbook
 
 import mirae_asset_graph.ingest.basket_kr as basket_module
+import mirae_asset_graph.ingest.http_fetch as http_fetch
 from mirae_asset_graph.ingest.basket_kr import ManagerBasketAdapter, ManagerBasketTarget
 from mirae_asset_graph.ingest.crosswalk import CROSSWALK_FIELDS, CrosswalkRow
 from mirae_asset_graph.ingest.records import read_jsonl
@@ -35,6 +38,15 @@ DOCUMENT_ID = f"{MANAGER_CODE}:{FUND_CODE}:{AS_OF.isoformat()}"
 DOCUMENT_TOTAL_MARKET_VALUE = 1_000_000.0
 
 
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        http_fetch,
+        "_resolve_host",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))],
+    )
+
+
 def _target(
     manager_code: str = MANAGER_CODE,
     fund_code: str = FUND_CODE,
@@ -52,6 +64,7 @@ def _target(
         as_of=as_of,
         published_at=published_at,
         format_hint=format_hint,
+        reviewed_hosts=("www.example.co.kr",),
     )
 
 
@@ -84,12 +97,14 @@ def _adapter(
     window_start: date | None = None,
     window_end: date | None = None,
     cutoff: datetime | None = None,
+    refresh: bool = True,
 ) -> ManagerBasketAdapter:
     return ManagerBasketAdapter(
         targets=targets if targets is not None else [_target()],
         raw_root=tmp_path / "raw",
         resolver=resolver if resolver is not None else _krx_resolver(),
         user_agent=user_agent,
+        refresh=refresh,
         request_interval_seconds=request_interval_seconds,
         retry_count=retry_count,
         window_start=window_start,
@@ -104,6 +119,9 @@ class _FakeResponse:
 
     def read(self) -> bytes:
         return self._payload
+
+    def geturl(self) -> str:
+        return SOURCE_URL
 
     def __enter__(self) -> _FakeResponse:
         return self
@@ -132,6 +150,10 @@ def _read_quarantine(path: Path) -> list[dict[str, object]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _without_document_id(value: dict[str, object]) -> dict[str, object]:
+    return {key: item for key, item in value.items() if key != "source_document_id"}
 
 
 def test_user_agent_must_identify_the_caller(tmp_path: Path) -> None:
@@ -231,12 +253,12 @@ def test_normalize_utf8_fixture_yields_three_records_and_two_quarantined(tmp_pat
     )
 
     assert (record_count, quarantine_count) == (3, 2)
-    assert records_path == (
-        output_dir / "manager_basket" / MANAGER_CODE / FUND_CODE / "2026-06-30.jsonl"
-    )
-    assert quarantine_path == (
-        output_dir / "manager_basket" / MANAGER_CODE / FUND_CODE / "2026-06-30.quarantine.jsonl"
-    )
+    raw_sha256 = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
+    base = output_dir / "manager_basket" / MANAGER_CODE / FUND_CODE / "2026-06-30"
+    assert records_path.parent == base / "records"
+    assert records_path.suffix == ".jsonl" and len(records_path.stem) == 64
+    assert quarantine_path.parent == base / "quarantine"
+    assert quarantine_path.name.endswith(".quarantine.jsonl")
 
     records = read_jsonl(records_path)
     assert [record.constituent_isin for record in records] == [
@@ -253,7 +275,7 @@ def test_normalize_utf8_fixture_yields_three_records_and_two_quarantined(tmp_pat
     assert one.fund_isin == FUND_ISIN
     assert one.as_of == AS_OF
     assert one.published_at == PUBLISHED_AT
-    assert one.source_document_id == DOCUMENT_ID
+    assert one.source_document_id == f"{DOCUMENT_ID}:{raw_sha256}"
     assert one.source_url == SOURCE_URL
     assert one.source_quantity == pytest.approx(1000.0)
     assert one.source_market_value == pytest.approx(450000.0)
@@ -281,7 +303,7 @@ def test_normalize_utf8_fixture_yields_three_records_and_two_quarantined(tmp_pat
     unresolved = by_identifier["999999"]
     assert unresolved["source_identifier_type"] == "krx_code"
     assert unresolved["constituent_name"] == "미해결종목"
-    assert unresolved["source_document_id"] == DOCUMENT_ID
+    assert unresolved["source_document_id"] == f"{DOCUMENT_ID}:{raw_sha256}"
     assert "no reviewed ISIN crosswalk entry" in cast(str, unresolved["reason"])
 
     negative = by_identifier["KR7035740009"]
@@ -299,10 +321,12 @@ def test_normalize_cp949_fallback_matches_utf8_result(tmp_path: Path) -> None:
     cp949_result = adapter.normalize(_target(), cp949_path, tmp_path / "out-cp949")
 
     assert cp949_result[2:] == utf8_result[2:] == (3, 2)
-    assert [record.to_dict() for record in read_jsonl(cp949_result[0])] == [
-        record.to_dict() for record in read_jsonl(utf8_result[0])
+    assert [_without_document_id(record.to_dict()) for record in read_jsonl(cp949_result[0])] == [
+        _without_document_id(record.to_dict()) for record in read_jsonl(utf8_result[0])
     ]
-    assert _read_quarantine(cp949_result[1]) == _read_quarantine(utf8_result[1])
+    assert [_without_document_id(row) for row in _read_quarantine(cp949_result[1])] == [
+        _without_document_id(row) for row in _read_quarantine(utf8_result[1])
+    ]
 
 
 def test_normalize_xlsx_first_worksheet_matches_csv_result(tmp_path: Path) -> None:
@@ -326,24 +350,24 @@ def test_normalize_xlsx_first_worksheet_matches_csv_result(tmp_path: Path) -> No
     xlsx_result = adapter.normalize(_target(format_hint="xlsx"), xlsx_path, tmp_path / "out-xlsx")
 
     assert xlsx_result[2:] == csv_result[2:] == (3, 2)
-    assert [record.to_dict() for record in read_jsonl(xlsx_result[0])] == [
-        record.to_dict() for record in read_jsonl(csv_result[0])
+    assert [_without_document_id(record.to_dict()) for record in read_jsonl(xlsx_result[0])] == [
+        _without_document_id(record.to_dict()) for record in read_jsonl(csv_result[0])
     ]
-    assert _read_quarantine(xlsx_result[1]) == _read_quarantine(csv_result[1])
+    assert [_without_document_id(row) for row in _read_quarantine(xlsx_result[1])] == [
+        _without_document_id(row) for row in _read_quarantine(csv_result[1])
+    ]
 
 
-def test_fetch_cache_hit_makes_no_network_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fetch_requires_explicit_refresh_and_makes_no_network_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     def unreachable(request: object, timeout: object = None) -> object:
         raise AssertionError("a cached raw file must not trigger urlopen")
 
-    monkeypatch.setattr(urllib.request, "urlopen", unreachable)
-    adapter = _adapter(tmp_path)
-    cached = adapter.raw_root / "manager_basket" / MANAGER_CODE / FUND_CODE / "2026-06-30.csv"
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_bytes(b"already stored")
-
-    assert adapter.fetch(_target()) == cached
-    assert cached.read_bytes() == b"already stored"
+    monkeypatch.setattr(http_fetch, "_open_once", unreachable)
+    adapter = _adapter(tmp_path, refresh=False)
+    with pytest.raises(ValueError, match="explicit refresh"):
+        adapter.fetch(_target())
 
 
 @pytest.mark.parametrize("status_code", [429, 500, 502, 503, 504])
@@ -360,14 +384,22 @@ def test_fetch_retries_transient_failure_then_writes_atomically(
             raise _http_error(status_code)
         return _FakeResponse(FIXTURE_BYTES)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch, "_open_once", fake_urlopen)
     sleep_recorder = _SleepRecorder()
     monkeypatch.setattr(time, "sleep", sleep_recorder)
 
     adapter = _adapter(tmp_path)
     raw_path = adapter.fetch(_target())
 
-    assert raw_path == adapter.raw_root / "manager_basket" / MANAGER_CODE / FUND_CODE / "2026-06-30.csv"
+    digest = hashlib.sha256(FIXTURE_BYTES).hexdigest()
+    assert raw_path == (
+        adapter.raw_root
+        / "manager_basket"
+        / MANAGER_CODE
+        / FUND_CODE
+        / "2026-06-30"
+        / f"{digest}.csv"
+    )
     assert raw_path.read_bytes() == FIXTURE_BYTES
     assert len(calls) == 2
     assert 1.0 in sleep_recorder.calls
@@ -388,7 +420,7 @@ def test_fetch_raises_non_retryable_status_without_sleeping(
         calls.append(404)
         raise _http_error(404)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_fetch, "_open_once", fake_urlopen)
     sleep_recorder = _SleepRecorder()
     monkeypatch.setattr(time, "sleep", sleep_recorder)
 
@@ -426,6 +458,32 @@ def test_normalize_rerun_is_deterministic(tmp_path: Path) -> None:
     assert second[0].read_bytes() == first_records
     assert second[1].read_bytes() == first_quarantine
     assert second[2:] == first[2:]
+
+
+def test_normalized_outputs_are_immutable_across_crosswalk_changes(tmp_path: Path) -> None:
+    output_dir = tmp_path / "normalized"
+    baseline = _adapter(tmp_path).normalize(_target(), FIXTURE, output_dir)
+    baseline_records = baseline[0].read_bytes()
+    baseline_quarantine = baseline[1].read_bytes()
+    values = {field: "" for field in CROSSWALK_FIELDS}
+    values.update(
+        {
+            "entity_kind": "security",
+            "local_key_type": "krx_code",
+            "local_key": "999999",
+            "standard_id_type": "isin",
+            "standard_id": "KR7035740009",
+            "reviewed_by": "test-reviewer",
+            "reviewed_at": "2026-08-21",
+        }
+    )
+    changed = _adapter(
+        tmp_path, resolver=IdentifierResolver([CrosswalkRow(**values)])
+    ).normalize(_target(), FIXTURE, output_dir)
+    assert changed[0] != baseline[0]
+    assert changed[1] != baseline[1]
+    assert baseline[0].read_bytes() == baseline_records
+    assert baseline[1].read_bytes() == baseline_quarantine
 
 
 def test_basket_module_does_not_import_neo4j() -> None:

@@ -21,6 +21,7 @@ and a KRX code is never expanded into an ISIN.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -36,9 +37,13 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from ..model import is_isin
+from ..model import file_sha256
 from .base import Adapter
-from .records import HoldingsRecord, write_jsonl
+from .artifacts import publish_immutable
+from .http_fetch import read_with_validated_redirects
+from .records import HoldingsRecord, serialize_jsonl, write_jsonl
 from .resolver import IdentifierResolver
+from .source_policy import normalize_reviewed_hosts, validate_source_url
 
 MANAGER_BASKET_SOURCE = "manager_basket"
 
@@ -86,6 +91,8 @@ class ManagerBasketTarget:
     as_of: date
     published_at: datetime
     format_hint: str
+    reviewed_hosts: tuple[str, ...]
+    allow_test_hosts: bool = False
 
     def __post_init__(self) -> None:
         for field_name in ("manager_code", "fund_code", "fund_isin", "source_url"):
@@ -114,6 +121,16 @@ class ManagerBasketTarget:
                 f"ManagerBasketTarget: format_hint must be one of {list(FORMAT_HINTS)}: "
                 f"{self.format_hint!r}"
             )
+        normalized_hosts = normalize_reviewed_hosts(self.reviewed_hosts)
+        object.__setattr__(self, "reviewed_hosts", normalized_hosts)
+        normalized_url = validate_source_url(
+            MANAGER_BASKET_SOURCE,
+            self.source_url,
+            manager_hosts=normalized_hosts,
+            allow_test_hosts=self.allow_test_hosts,
+        )
+        if normalized_url != self.source_url:
+            object.__setattr__(self, "source_url", normalized_url)
 
 
 @dataclass(frozen=True)
@@ -182,6 +199,12 @@ def _write_quarantine_jsonl(entries: Iterable[BasketQuarantineEntry], path: Path
             handle.write(json.dumps(entry.to_dict(), ensure_ascii=False) + "\n")
             written += 1
     return written
+
+
+def _serialize_quarantine_jsonl(entries: Iterable[BasketQuarantineEntry]) -> tuple[bytes, int]:
+    selected = tuple(entries)
+    text = "".join(json.dumps(entry.to_dict(), ensure_ascii=False) + "\n" for entry in selected)
+    return text.encode("utf-8"), len(selected)
 
 
 def _normalized_header(text: str) -> str:
@@ -383,6 +406,7 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
         raw_root: Path,
         resolver: IdentifierResolver,
         user_agent: str,
+        refresh: bool,
         request_interval_seconds: float = DEFAULT_REQUEST_INTERVAL_SECONDS,
         retry_count: int = DEFAULT_RETRY_COUNT,
         window_start: date | None = None,
@@ -393,6 +417,14 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
         self.raw_root = Path(raw_root)
         self._resolver = resolver
         self.user_agent = _validated_user_agent(user_agent)
+        self.refresh = refresh
+        for target in self._targets:
+            _ = validate_source_url(
+                MANAGER_BASKET_SOURCE,
+                target.source_url,
+                manager_hosts=target.reviewed_hosts,
+                allow_test_hosts=target.allow_test_hosts,
+            )
         if (
             isinstance(request_interval_seconds, bool)
             or not isinstance(request_interval_seconds, (int, float))
@@ -444,21 +476,27 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
         Requests are spaced at least request_interval_seconds apart and retried
         on 429/500/502/503/504 with bounded exponential backoff.
         """
-        raw_path = self._raw_path(target)
-        if raw_path.is_file() and raw_path.stat().st_size > 0:
-            return raw_path
+        if not self.refresh:
+            raise ValueError("ManagerBasketAdapter: explicit refresh is required for network collection")
         accept = _CSV_ACCEPT if target.format_hint == "csv" else _XLSX_ACCEPT
-        request = urllib.request.Request(
-            target.source_url,
-            headers={"User-Agent": self.user_agent, "Accept": accept},
-            method="GET",
-        )
         for attempt in range(self.retry_count + 1):
             self._respect_rate_limit()
             try:
-                with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
-                    payload = response.read()
-                _atomic_write(raw_path, payload)
+                payload = read_with_validated_redirects(
+                    target.source_url,
+                    headers={"User-Agent": self.user_agent, "Accept": accept},
+                    timeout=_REQUEST_TIMEOUT_SECONDS,
+                    validate_url=lambda url: validate_source_url(
+                        MANAGER_BASKET_SOURCE,
+                        url,
+                        manager_hosts=target.reviewed_hosts,
+                        allow_test_hosts=target.allow_test_hosts,
+                    ),
+                )
+                digest = hashlib.sha256(payload).hexdigest()
+                raw_path = self._raw_path(target, digest)
+                if not raw_path.exists():
+                    _atomic_write(raw_path, payload)
                 return raw_path
             except urllib.error.HTTPError as error:
                 if error.code in _RETRIABLE_STATUS_CODES and attempt < self.retry_count:
@@ -501,33 +539,38 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
 
         total_market_value = _document_total_market_value(rows)
 
+        raw_sha256 = file_sha256(Path(raw_path))
+        source_document_id = self._document_id(target, raw_sha256)
         records: list[HoldingsRecord] = []
         quarantined: list[BasketQuarantineEntry] = []
         for row in rows:
-            outcome = self._normalize_row(target, row, total_market_value)
+            outcome = self._normalize_row(target, row, total_market_value, source_document_id)
             if isinstance(outcome, BasketQuarantineEntry):
                 quarantined.append(outcome)
             else:
                 records.append(outcome)
 
-        records_path = (
+        artifact_dir = (
             Path(output_dir)
             / MANAGER_BASKET_SOURCE
             / target.manager_code
             / target.fund_code
-            / f"{target.as_of.isoformat()}.jsonl"
+            / target.as_of.isoformat()
         )
-        records_path.parent.mkdir(parents=True, exist_ok=True)
-        _ = write_jsonl(records, records_path)
-        quarantine_path = records_path.with_name(f"{target.as_of.isoformat()}.quarantine.jsonl")
-        _ = _write_quarantine_jsonl(quarantined, quarantine_path)
-        return records_path, quarantine_path, len(records), len(quarantined)
+        records_payload, record_count = serialize_jsonl(records)
+        quarantine_payload, quarantine_count = _serialize_quarantine_jsonl(quarantined)
+        records_path = publish_immutable(artifact_dir / "records", records_payload, ".jsonl")
+        quarantine_path = publish_immutable(
+            artifact_dir / "quarantine", quarantine_payload, ".quarantine.jsonl"
+        )
+        return records_path, quarantine_path, record_count, quarantine_count
 
     def _normalize_row(
         self,
         target: ManagerBasketTarget,
         row: _Row,
         total_market_value: float | None,
+        source_document_id: str,
     ) -> HoldingsRecord | BasketQuarantineEntry:
         """Resolve, validate, and weigh one basket row; quarantine instead of crashing."""
         resolution = self._resolver.resolve(
@@ -536,46 +579,34 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
             local_key=row.krx_code,
         )
         if resolution.isin is None:
-            return self._quarantine(target, row, f"constituent identity unresolved: {resolution.reason}")
+            return self._quarantine(target, row, source_document_id, f"constituent identity unresolved: {resolution.reason}")
         if not row.name:
-            return self._quarantine(target, row, "constituent name is missing")
+            return self._quarantine(target, row, source_document_id, "constituent name is missing")
         for label, raw, value in (
             ("weight percent", row.weight_pct_raw, row.weight_pct),
             ("quantity", row.quantity_raw, row.quantity),
             ("market value", row.market_value_raw, row.market_value),
         ):
             if raw is not None and value is None:
-                return self._quarantine(target, row, f"{label} is not a valid number: {raw!r}")
+                return self._quarantine(target, row, source_document_id, f"{label} is not a valid number: {raw!r}")
         if row.quantity is not None and row.quantity < 0:
-            return self._quarantine(target, row, f"quantity is negative: {row.quantity}")
+            return self._quarantine(target, row, source_document_id, f"quantity is negative: {row.quantity}")
         if row.market_value is not None and row.market_value < 0:
-            return self._quarantine(target, row, f"market value is negative: {row.market_value}")
+            return self._quarantine(target, row, source_document_id, f"market value is negative: {row.market_value}")
 
         if row.weight_pct is not None:
             weight = row.weight_pct / 100.0
             weight_source = _SOURCE_PUBLISHED
             if weight < 0:
-                return self._quarantine(
-                    target, row, f"weight {weight} from weight percent {row.weight_pct} is negative"
-                )
+                return self._quarantine(target, row, source_document_id, f"weight {weight} from weight percent {row.weight_pct} is negative")
             if weight > 1:
-                return self._quarantine(
-                    target, row, f"weight {weight} from weight percent {row.weight_pct} exceeds 1.0"
-                )
+                return self._quarantine(target, row, source_document_id, f"weight {weight} from weight percent {row.weight_pct} exceeds 1.0")
         else:
             if row.market_value is None:
-                return self._quarantine(
-                    target,
-                    row,
-                    "weight percent and market value are both missing; weight cannot be determined",
-                )
+                return self._quarantine(target, row, source_document_id, "weight percent and market value are both missing; weight cannot be determined")
             if total_market_value is None:
-                return self._quarantine(
-                    target,
-                    row,
-                    "weight percent is missing and no positive market values exist in this "
-                    "document to derive a document total from",
-                )
+                return self._quarantine(target, row, source_document_id, "weight percent is missing and no positive market values exist in this "
+                "document to derive a document total from")
             weight = row.market_value / total_market_value
             weight_source = _DERIVED_FROM_VALUE
 
@@ -594,8 +625,10 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
             as_of=target.as_of,
             weight_source=weight_source,
             identifier_method=resolution.method,
-            source_document_id=self._document_id(target),
+            source_document_id=source_document_id,
             source_url=target.source_url,
+            evidence_basis="manager_published",
+            source_row_id=f"row:{row.row_number}",
             source_quantity=row.quantity,
             source_currency=source_currency,
             source_market_value=row.market_value,
@@ -604,28 +637,34 @@ class ManagerBasketAdapter(Adapter[ManagerBasketTarget, tuple[Path, Path, int, i
         return record
 
     def _quarantine(
-        self, target: ManagerBasketTarget, row: _Row, reason: str
+        self,
+        target: ManagerBasketTarget,
+        row: _Row,
+        source_document_id: str,
+        reason: str,
     ) -> BasketQuarantineEntry:
         identifier_type = "isin" if row.source_isin else (_KRX_CODE if row.krx_code else None)
         identifier_value = row.source_isin if row.source_isin else row.krx_code
         return BasketQuarantineEntry(
-            source_document_id=self._document_id(target),
+            source_document_id=source_document_id,
             constituent_name=row.name,
             reason=f"row {row.row_number}: {reason}",
             source_identifier_type=identifier_type,
             source_identifier_value=identifier_value,
         )
 
-    def _document_id(self, target: ManagerBasketTarget) -> str:
-        return f"{target.manager_code}:{target.fund_code}:{target.as_of.isoformat()}"
+    def _document_id(self, target: ManagerBasketTarget, raw_sha256: str | None = None) -> str:
+        stable = f"{target.manager_code}:{target.fund_code}:{target.as_of.isoformat()}"
+        return f"{stable}:{raw_sha256}" if raw_sha256 is not None else stable
 
-    def _raw_path(self, target: ManagerBasketTarget) -> Path:
+    def _raw_path(self, target: ManagerBasketTarget, raw_sha256: str) -> Path:
         return (
             self.raw_root
             / MANAGER_BASKET_SOURCE
             / target.manager_code
             / target.fund_code
-            / f"{target.as_of.isoformat()}.{target.format_hint}"
+            / target.as_of.isoformat()
+            / f"{raw_sha256}.{target.format_hint}"
         )
 
     def _respect_rate_limit(self) -> None:

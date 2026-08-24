@@ -17,6 +17,7 @@ IdentifierResolver; names are provenance and never a merge key.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import tempfile
 import time
@@ -29,8 +30,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .base import Adapter
-from .records import HoldingsRecord, write_jsonl
+from .artifacts import publish_immutable
+from .http_fetch import read_with_validated_redirects
+from .records import HoldingsRecord, serialize_jsonl, write_jsonl
 from .resolver import IdentifierResolver
+from .source_policy import validate_source_url
 
 NPORT_SOURCE = "sec_nport"
 
@@ -43,7 +47,10 @@ _REQUEST_TIMEOUT_SECONDS = 30.0
 _BACKOFF_BASE_SECONDS = 1.0
 _BACKOFF_MAX_SECONDS = 30.0
 
-_REPORT_DATE_TAGS: tuple[str, ...] = ("reportDate", "periodOfReport")
+_REPORT_DATE_TAGS: tuple[str, ...] = ("reportDate", "periodOfReport", "repPdDate")
+_IDENTIFIER_PLACEHOLDERS = frozenset(
+    {"n/a", "na", "none", "null", "not applicable", "-", "--"}
+)
 
 _CUSIP = "cusip"
 _SOURCE_PUBLISHED = "source_published"
@@ -59,6 +66,7 @@ class NPortTarget:
     fund_isin: str
     as_of: date
     published_at: datetime
+    allow_test_hosts: bool = False
 
     def __post_init__(self) -> None:
         for field_name in ("accession", "source_url", "fund_isin"):
@@ -73,6 +81,11 @@ class NPortTarget:
             raise ValueError("NPortTarget: as_of must be a date, not a datetime")
         if not isinstance(self.published_at, datetime):
             raise ValueError("NPortTarget: published_at must be a datetime")
+        normalized_url = validate_source_url(
+            NPORT_SOURCE, self.source_url, allow_test_hosts=self.allow_test_hosts
+        )
+        if normalized_url != self.source_url:
+            object.__setattr__(self, "source_url", normalized_url)
 
 
 @dataclass(frozen=True)
@@ -131,6 +144,37 @@ def _child_text(element: ET.Element, local_tag: str) -> str | None:
     return None
 
 
+def _descendant_text(element: ET.Element, local_tag: str) -> str | None:
+    """First nonblank descendant text matching a namespace-insensitive tag."""
+    for descendant in element.iter():
+        if _local_name(descendant.tag) != local_tag:
+            continue
+        text = (descendant.text or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _descendant_attribute(element: ET.Element, local_tag: str, attribute: str) -> str | None:
+    """First nonblank descendant attribute, both names namespace-insensitive."""
+    for descendant in element.iter():
+        if _local_name(descendant.tag) != local_tag:
+            continue
+        for key, value in descendant.attrib.items():
+            if _local_name(key) == attribute and value.strip():
+                return value.strip()
+    return None
+
+
+def _usable_identifier(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text or text.casefold() in _IDENTIFIER_PLACEHOLDERS:
+        return None
+    return text
+
+
 def _atomic_write(path: Path, payload: bytes) -> None:
     """Write payload to a temp file in path's directory, then replace path."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +199,12 @@ def _write_quarantine_jsonl(entries: Iterable[QuarantineEntry], path: Path) -> i
             handle.write(json.dumps(entry.to_dict(), ensure_ascii=False) + "\n")
             written += 1
     return written
+
+
+def _serialize_quarantine_jsonl(entries: Iterable[QuarantineEntry]) -> tuple[bytes, int]:
+    selected = tuple(entries)
+    text = "".join(json.dumps(entry.to_dict(), ensure_ascii=False) + "\n" for entry in selected)
+    return text.encode("utf-8"), len(selected)
 
 
 @dataclass(frozen=True)
@@ -189,15 +239,24 @@ def _parse_number(raw: str | None) -> tuple[str | None, float | None]:
 
 
 def _parse_position(element: ET.Element, index: int) -> _Position:
-    balance_raw, balance = _parse_number(_child_text(element, "balance"))
-    pct_val_raw, pct_val = _parse_number(_child_text(element, "pctVal"))
-    val_usd_raw, val_usd = _parse_number(_child_text(element, "valUSD"))
+    balance_raw, balance = _parse_number(_descendant_text(element, "balance"))
+    pct_val_raw, pct_val = _parse_number(_descendant_text(element, "pctVal"))
+    val_usd_raw, val_usd = _parse_number(_descendant_text(element, "valUSD"))
+    isin = _usable_identifier(
+        _descendant_attribute(element, "isin", "value")
+        or _descendant_text(element, "isin")
+    )
+    cusip = _usable_identifier(_descendant_text(element, "cusip"))
+    currency = (
+        _descendant_attribute(element, "currencyConditional", "curCd")
+        or _descendant_text(element, "curCd")
+    )
     return _Position(
         index=index,
-        name=_child_text(element, "name"),
-        isin=_child_text(element, "isin"),
-        cusip=_child_text(element, "cusip"),
-        currency=_child_text(element, "curCd"),
+        name=_descendant_text(element, "name"),
+        isin=isin,
+        cusip=cusip,
+        currency=currency,
         balance=balance,
         balance_raw=balance_raw,
         pct_val=pct_val,
@@ -219,6 +278,7 @@ class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
         raw_root: Path,
         resolver: IdentifierResolver,
         user_agent: str,
+        refresh: bool,
         max_requests_per_second: float = DEFAULT_MAX_REQUESTS_PER_SECOND,
         retry_count: int = DEFAULT_RETRY_COUNT,
         window_start: date | None = None,
@@ -229,6 +289,11 @@ class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
         self.raw_root = Path(raw_root)
         self._resolver = resolver
         self.user_agent = _validated_user_agent(user_agent)
+        self.refresh = refresh
+        for target in self._targets:
+            _ = validate_source_url(
+                NPORT_SOURCE, target.source_url, allow_test_hosts=target.allow_test_hosts
+            )
         if isinstance(max_requests_per_second, bool) or not isinstance(max_requests_per_second, (int, float)):
             raise ValueError(
                 f"NPortAdapter: max_requests_per_second must be a positive number: {max_requests_per_second!r}"
@@ -278,20 +343,23 @@ class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
         Requests are rate limited to max_requests_per_second and retried on
         429/500/502/503/504 with bounded exponential backoff.
         """
-        raw_path = self.raw_root / NPORT_SOURCE / f"{target.accession}.xml"
-        if raw_path.is_file() and raw_path.stat().st_size > 0:
-            return raw_path
-        request = urllib.request.Request(
-            target.source_url,
-            headers={"User-Agent": self.user_agent, "Accept": "application/xml"},
-            method="GET",
-        )
+        if not self.refresh:
+            raise ValueError("NPortAdapter: explicit refresh is required for network collection")
         for attempt in range(self.retry_count + 1):
             self._respect_rate_limit()
             try:
-                with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
-                    payload = response.read()
-                _atomic_write(raw_path, payload)
+                payload = read_with_validated_redirects(
+                    target.source_url,
+                    headers={"User-Agent": self.user_agent, "Accept": "application/xml"},
+                    timeout=_REQUEST_TIMEOUT_SECONDS,
+                    validate_url=lambda url: validate_source_url(
+                        NPORT_SOURCE, url, allow_test_hosts=target.allow_test_hosts
+                    ),
+                )
+                digest = hashlib.sha256(payload).hexdigest()
+                raw_path = self.raw_root / NPORT_SOURCE / target.accession / f"{digest}.xml"
+                if not raw_path.exists():
+                    _atomic_write(raw_path, payload)
                 return raw_path
             except urllib.error.HTTPError as error:
                 if error.code in _RETRIABLE_STATUS_CODES and attempt < self.retry_count:
@@ -356,12 +424,14 @@ class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
             else:
                 records.append(outcome)
 
-        records_path = Path(output_dir) / NPORT_SOURCE / f"{target.accession}.jsonl"
-        records_path.parent.mkdir(parents=True, exist_ok=True)
-        _ = write_jsonl(records, records_path)
-        quarantine_path = records_path.with_name(f"{target.accession}.quarantine.jsonl")
-        _ = _write_quarantine_jsonl(quarantined, quarantine_path)
-        return records_path, quarantine_path, len(records), len(quarantined)
+        artifact_dir = Path(output_dir) / NPORT_SOURCE / target.accession
+        records_payload, record_count = serialize_jsonl(records)
+        quarantine_payload, quarantine_count = _serialize_quarantine_jsonl(quarantined)
+        records_path = publish_immutable(artifact_dir / "records", records_payload, ".jsonl")
+        quarantine_path = publish_immutable(
+            artifact_dir / "quarantine", quarantine_payload, ".quarantine.jsonl"
+        )
+        return records_path, quarantine_path, record_count, quarantine_count
 
     def _normalize_position(
         self,
@@ -429,6 +499,8 @@ class NPortAdapter(Adapter[NPortTarget, tuple[Path, Path, int, int]]):
             identifier_method=resolution.method,
             source_document_id=target.accession,
             source_url=target.source_url,
+            evidence_basis="regulatory_filing",
+            source_row_id=f"position:{position.index}",
             source_quantity=position.balance,
             source_currency=position.currency,
             source_market_value=position.val_usd,

@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 mirae-graph = "mirae_asset_graph.cli:main"
+mirae-ingest = "mirae_asset_graph.ingest_cli:main"
 
 [build-system]
 requires = ["hatchling"]
