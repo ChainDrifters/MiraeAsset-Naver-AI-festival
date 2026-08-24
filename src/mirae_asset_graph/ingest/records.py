@@ -19,16 +19,7 @@ from ..model import is_isin
 # Domains fixed by docs/external-sources-decision.md.
 WEIGHT_SOURCES: tuple[str, ...] = ("source_published", "derived_from_value")
 IDENTIFIER_METHODS: tuple[str, ...] = ("source_isin", "crosswalk", "unresolved")
-
-# Exactly the keys graph_loader._holding_payload consumes; nothing else leaks.
-LOADER_FIELDS: tuple[str, ...] = (
-    "fund_isin",
-    "constituent_isin",
-    "constituent_name",
-    "weight",
-    "as_of",
-)
-
+EVIDENCE_BASES: tuple[str, ...] = ("manager_published", "regulatory_filing")
 
 @dataclass(frozen=True)
 class HoldingsRecord:
@@ -47,6 +38,8 @@ class HoldingsRecord:
     published_at: datetime | None
     source_document_id: str
     source_url: str
+    evidence_basis: str
+    source_row_id: str
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -55,6 +48,7 @@ class HoldingsRecord:
             "constituent_name",
             "source_document_id",
             "source_url",
+            "source_row_id",
         ):
             value = getattr(self, field_name)
             if not isinstance(value, str) or not value.strip():
@@ -97,6 +91,8 @@ class HoldingsRecord:
             )
         if self.published_at is not None and not isinstance(self.published_at, datetime):
             raise ValueError("HoldingsRecord: published_at must be a datetime or None")
+        if self.evidence_basis not in EVIDENCE_BASES:
+            raise ValueError(f"HoldingsRecord: evidence_basis must be one of {list(EVIDENCE_BASES)}")
 
     @classmethod
     def create(
@@ -111,6 +107,8 @@ class HoldingsRecord:
         identifier_method: str,
         source_document_id: str,
         source_url: str,
+        evidence_basis: str,
+        source_row_id: str,
         source_quantity: float | str | None = None,
         source_currency: str | None = None,
         source_market_value: float | str | None = None,
@@ -141,6 +139,8 @@ class HoldingsRecord:
             published_at=_as_datetime(published_at),
             source_document_id=_required_text(source_document_id, "source_document_id").strip(),
             source_url=_required_text(source_url, "source_url").strip(),
+            evidence_basis=_required_text(evidence_basis, "evidence_basis").strip(),
+            source_row_id=_required_text(source_row_id, "source_row_id").strip(),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -159,6 +159,8 @@ class HoldingsRecord:
             "published_at": self.published_at.isoformat() if self.published_at is not None else None,
             "source_document_id": self.source_document_id,
             "source_url": self.source_url,
+            "evidence_basis": self.evidence_basis,
+            "source_row_id": self.source_row_id,
         }
 
     @classmethod
@@ -184,17 +186,13 @@ class HoldingsRecord:
             published_at=_as_datetime(data["published_at"]),
             source_document_id=_required_text(data["source_document_id"], "source_document_id"),
             source_url=_required_text(data["source_url"], "source_url"),
+            evidence_basis=_required_text(data["evidence_basis"], "evidence_basis"),
+            source_row_id=_required_text(data["source_row_id"], "source_row_id"),
         )
 
     def to_loader_payload(self) -> dict[str, object]:
-        """Exactly the keys graph_loader._holding_payload consumes."""
-        return {
-            "fund_isin": self.fund_isin,
-            "constituent_isin": self.constituent_isin,
-            "constituent_name": self.constituent_name,
-            "weight": self.weight,
-            "as_of": self.as_of.isoformat(),
-        }
+        """Preserve every canonical evidence field for graph loading."""
+        return self.to_dict()
 
 
 CANONICAL_FIELDS: tuple[str, ...] = tuple(field.name for field in fields(HoldingsRecord))
@@ -215,23 +213,39 @@ def write_jsonl(records: Iterable[HoldingsRecord], path: Path) -> int:
     return written
 
 
+def serialize_jsonl(records: Iterable[HoldingsRecord]) -> tuple[bytes, int]:
+    selected = tuple(records)
+    text = "".join(
+        json.dumps(record.to_dict(), ensure_ascii=False) + "\n" for record in selected
+    )
+    return text.encode("utf-8"), len(selected)
+
+
 def read_jsonl(path: Path) -> list[HoldingsRecord]:
     """Strict JSONL read; every nonblank line must parse via from_dict."""
+    return read_jsonl_bytes(path.read_bytes())
+
+
+def read_jsonl_bytes(payload: bytes) -> list[HoldingsRecord]:
+    """Parse the exact verified normalized bytes without reopening a path."""
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("Holdings JSONL is not UTF-8") from error
     records: list[HoldingsRecord] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            if not line.strip():
-                continue
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError as error:
-                raise ValueError(f"Holdings JSONL line {line_number}: invalid JSON: {error.msg}") from error
-            if not isinstance(data, dict):
-                raise ValueError(f"Holdings JSONL line {line_number}: expected a JSON object")
-            try:
-                records.append(HoldingsRecord.from_dict(data))
-            except ValueError as error:
-                raise ValueError(f"Holdings JSONL line {line_number}: {error}") from error
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Holdings JSONL line {line_number}: invalid JSON: {error.msg}") from error
+        if not isinstance(data, dict):
+            raise ValueError(f"Holdings JSONL line {line_number}: expected a JSON object")
+        try:
+            records.append(HoldingsRecord.from_dict(data))
+        except ValueError as error:
+            raise ValueError(f"Holdings JSONL line {line_number}: {error}") from error
     return records
 
 

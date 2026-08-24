@@ -5,10 +5,13 @@ import json
 from dataclasses import fields
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import cast
 
 import pytest
+from neo4j import Driver
 
 from mirae_asset_graph.ingest.graph_loader import _holding_payload
+from mirae_asset_graph.ingest.graph_loader import ExternalGraphLoader
 from mirae_asset_graph.ingest.records import (
     CANONICAL_FIELDS,
     HoldingsRecord,
@@ -32,9 +35,11 @@ def _record(**overrides: object) -> HoldingsRecord:
         "published_at": datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc),
         "source_document_id": "kstr-holdings-2026-07-31",
         "source_url": "https://kraneshares.com/etf/kstr/",
+        "evidence_basis": "manager_published",
+        "source_row_id": "row:2",
     }
     values.update(overrides)
-    return HoldingsRecord.create(**values)
+    return HoldingsRecord.from_dict(values)
 
 
 def test_create_normalizes_isins_text_and_currency() -> None:
@@ -161,13 +166,7 @@ def test_from_dict_rejects_unknown_and_missing_keys() -> None:
 def test_to_loader_payload_keys_are_exactly_loader_fields() -> None:
     payload = _record().to_loader_payload()
 
-    assert list(payload) == [
-        "fund_isin",
-        "constituent_isin",
-        "constituent_name",
-        "weight",
-        "as_of",
-    ]
+    assert list(payload) == list(CANONICAL_FIELDS)
     assert isinstance(payload["as_of"], str)
 
 
@@ -179,10 +178,66 @@ def test_to_loader_payload_is_accepted_by_graph_loader() -> None:
     assert graph_row["constituentName"] == "Cambricon Technologies Corporation Limited"
     assert graph_row["weight"] == pytest.approx(0.0825)
     assert graph_row["asOf"] == date(2026, 7, 31)
+    assert graph_row["sourceQuantity"] == 12500.0
+    assert graph_row["sourceCurrency"] == "USD"
+    assert graph_row["sourceMarketValue"] == 1000000.0
+    assert graph_row["weightSource"] == "source_published"
+    assert graph_row["identifierMethod"] == "source_isin"
+    assert graph_row["publishedAt"] == datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
+    assert graph_row["sourceDocumentId"] == "kstr-holdings-2026-07-31"
+    assert graph_row["sourceUrl"] == "https://kraneshares.com/etf/kstr/"
     assert graph_row["fundUri"] == "urn:miraeasset:security:isin:US5007676944"
     assert graph_row["constituentUri"] == "urn:miraeasset:security:isin:CNE1000041K3"
-    assert graph_row["snapshotUri"] == "urn:miraeasset:portfolio-snapshot:US5007676944:2026-07-31"
-    assert graph_row["positionUri"] == "urn:miraeasset:holding:US5007676944:CNE1000041K3:2026-07-31"
+    assert isinstance(graph_row["snapshotUri"], str)
+    assert isinstance(graph_row["positionUri"], str)
+    assert graph_row["snapshotUri"].endswith(":kstr-holdings-2026-07-31")
+    assert graph_row["positionUri"].endswith(":kstr-holdings-2026-07-31:row%3A2")
+    assert graph_row["evidenceBasis"] == "manager_published"
+    assert graph_row["sourceRowId"] == "row:2"
+
+
+def test_graph_identities_distinguish_amendments_and_preserve_rerun_identity() -> None:
+    original = _holding_payload(_record(source_document_id="accession-original").to_loader_payload())
+    rerun = _holding_payload(_record(source_document_id="accession-original").to_loader_payload())
+    amendment = _holding_payload(_record(source_document_id="accession-amended").to_loader_payload())
+
+    assert rerun["snapshotUri"] == original["snapshotUri"]
+    assert rerun["positionUri"] == original["positionUri"]
+    assert amendment["snapshotUri"] != original["snapshotUri"]
+    assert amendment["positionUri"] != original["positionUri"]
+
+
+def test_duplicate_security_rows_in_one_document_keep_distinct_positions() -> None:
+    first = _holding_payload(_record(source_row_id="row:2").to_loader_payload())
+    duplicate = _holding_payload(_record(source_row_id="row:3").to_loader_payload())
+    assert first["snapshotUri"] == duplicate["snapshotUri"]
+    assert first["positionUri"] != duplicate["positionUri"]
+
+
+def test_graph_loader_uses_full_artifact_sha256() -> None:
+    class FakeDriver:
+        arguments: dict[str, object] = {}
+
+        def execute_query(self, query: str, **kwargs: object):
+            self.arguments = kwargs
+            return [], None, None
+
+    driver = FakeDriver()
+    loader = ExternalGraphLoader(cast(Driver, cast(object, driver)), "mirae_staging")
+    digest = "a" * 64
+    result = loader.load_holdings_rows(
+        [_record().to_loader_payload()],
+        source="sec_nport",
+        source_url="https://www.sec.gov/example.xml",
+        artifact_sha256=digest,
+        artifact_bytes=100,
+        run_id="test-run",
+        retrieved_at=datetime(2026, 7, 11, tzinfo=timezone.utc),
+    )
+
+    assert result == {"rows": 1}
+    assert driver.arguments["artifactUri"] == f"urn:miraeasset:external:artifact:{digest}"
+    assert driver.arguments["database_"] == "mirae_staging"
 
 
 def test_jsonl_round_trip_and_overwrite(tmp_path: Path) -> None:
@@ -232,4 +287,6 @@ def test_dataclass_field_order_matches_contract() -> None:
         "published_at",
         "source_document_id",
         "source_url",
+        "evidence_basis",
+        "source_row_id",
     ]
