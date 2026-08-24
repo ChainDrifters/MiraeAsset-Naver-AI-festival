@@ -44,6 +44,10 @@ SET constituent.isin = row.constituentIsin,
     constituent.updatedAt = datetime()
 MERGE (snapshot:Resource:PortfolioSnapshot {uri: row.snapshotUri})
 SET snapshot.asOf = row.asOf,
+    snapshot.sourceDocumentId = row.sourceDocumentId,
+    snapshot.publishedAt = row.publishedAt,
+    snapshot.sourceUrl = row.sourceUrl,
+    snapshot.evidenceBasis = row.evidenceBasis,
     snapshot.source = $source,
     snapshot.updatedAt = datetime()
 MERGE (fund)-[:HAS_PORTFOLIO_SNAPSHOT]->(snapshot)
@@ -51,8 +55,21 @@ MERGE (snapshot)-[:DERIVED_FROM]->(artifact)
 MERGE (position:Resource:HoldingPosition {uri: row.positionUri})
 SET position.weight = row.weight,
     position.asOf = row.asOf,
+    position.sourceQuantity = row.sourceQuantity,
+    position.sourceCurrency = row.sourceCurrency,
+    position.sourceMarketValue = row.sourceMarketValue,
+    position.weightSource = row.weightSource,
+    position.identifierMethod = row.identifierMethod,
+    position.publishedAt = row.publishedAt,
+    position.sourceDocumentId = row.sourceDocumentId,
+    position.sourceUrl = row.sourceUrl,
+    position.evidenceBasis = row.evidenceBasis,
+    position.sourceRowId = row.sourceRowId,
+    position.sourcePublishedName = row.constituentName,
     position.source = $source,
     position.updatedAt = datetime()
+MERGE (snapshot)-[:HAS_POSITION]->(position)
+MERGE (position)-[:OF_SECURITY]->(constituent)
 MERGE (snapshot)-[:HAS_HOLDING]->(position)
 MERGE (position)-[:HOLDS]->(constituent)
 MERGE (position)-[:DERIVED_FROM]->(artifact)
@@ -87,7 +104,7 @@ MERGE (run)-[:UPSERTED]->(entry)
 
 
 class ExternalGraphLoader:
-    def __init__(self, driver: Driver, database: str = "neo4j") -> None:
+    def __init__(self, driver: Driver, database: str) -> None:
         self.driver: Driver = driver
         self.database: str = database
 
@@ -154,7 +171,7 @@ class ExternalGraphLoader:
             UPSERT_HOLDINGS,
             sourceUri=f"urn:miraeasset:external:source:{component(source)}",
             source=source,
-            artifactUri=f"urn:miraeasset:external:artifact:{artifact_sha256[:12]}",
+            artifactUri=f"urn:miraeasset:external:artifact:{artifact_sha256}",
             sourceUrl=source_url,
             sha256=artifact_sha256,
             bytes=artifact_bytes,
@@ -224,6 +241,15 @@ def _holding_payload(row: Mapping[str, object]) -> dict[str, object]:
     weight = float(_required_text(row, "weight"))
     if not 0 <= weight <= 1:
         raise ValueError(f"Holding weight must be between 0 and 1: {weight}")
+    source_document_id = _required_text(row, "source_document_id")
+    published_text = _optional_text(row, "published_at")
+    published_at = datetime.fromisoformat(published_text) if published_text is not None else None
+    source_quantity = _optional_float(row, "source_quantity")
+    source_market_value = _optional_float(row, "source_market_value")
+    source_currency = _optional_text(row, "source_currency")
+    source_url = _required_text(row, "source_url")
+    identity = component(source_document_id)
+    source_row_id = _required_text(row, "source_row_id")
     return {
         "fundUri": f"urn:miraeasset:security:isin:{component(fund)}",
         "fundIsin": fund,
@@ -232,8 +258,21 @@ def _holding_payload(row: Mapping[str, object]) -> dict[str, object]:
         "constituentName": _required_text(row, "constituent_name"),
         "weight": weight,
         "asOf": as_of,
-        "snapshotUri": f"urn:miraeasset:portfolio-snapshot:{fund}:{as_of.isoformat()}",
-        "positionUri": f"urn:miraeasset:holding:{fund}:{constituent}:{as_of.isoformat()}",
+        "sourceQuantity": source_quantity,
+        "sourceCurrency": source_currency,
+        "sourceMarketValue": source_market_value,
+        "weightSource": _required_text(row, "weight_source"),
+        "identifierMethod": _required_text(row, "identifier_method"),
+        "publishedAt": published_at,
+        "sourceDocumentId": source_document_id,
+        "sourceUrl": source_url,
+        "evidenceBasis": _required_text(row, "evidence_basis"),
+        "sourceRowId": source_row_id,
+        "snapshotUri": f"urn:miraeasset:portfolio-snapshot:{fund}:{as_of.isoformat()}:{identity}",
+        "positionUri": (
+            f"urn:miraeasset:holding:{fund}:{constituent}:{as_of.isoformat()}:{identity}:"
+            f"{component(source_row_id)}"
+        ),
     }
 
 
@@ -265,6 +304,23 @@ def _required_text(row: Mapping[str, object], key: str) -> str:
     if not text:
         raise ValueError(f"Missing required holdings field: {key}")
     return text
+
+
+def _optional_text(row: Mapping[str, object], key: str) -> str | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _optional_float(row: Mapping[str, object], key: str) -> float | None:
+    value = row.get(key)
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError(f"Holdings field must be numeric or null: {key}")
+    return float(value)
 
 
 def _single_window_date(path: Path) -> date:

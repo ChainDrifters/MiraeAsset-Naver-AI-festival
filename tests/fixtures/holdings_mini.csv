@@ -1,9 +1,9 @@
-fund_isin,constituent_isin,constituent_name,weight,as_of
-KR7069500007,US0378331005,Apple Inc.,0.1200,2026-01-11
-KR7069500007,US5949181045,Microsoft Corp.,0.1150,2026-03-11
-KR7069500007,US0231351067,Amazon.com Inc.,0.0710,2026-05-11
-KR7069500007,US02079K3059,Alphabet Inc. Class A,0.0630,2026-07-11
-KR7130910000,KR7005930003,Samsung Electronics Co. Ltd.,0.1900,2026-01-11
-KR7130910000,KR7357200009,Kakao Corp.,0.0520,2026-03-11
-KR7130910000,KR7035720002,KakaoBank Corp.,0.0410,2026-05-11
-KR7130910000,KR7035420009,NAVER Corp.,0.0840,2026-07-11
+fund_isin,constituent_isin,constituent_name,weight,as_of,source_quantity,source_currency,source_market_value,weight_source,identifier_method,published_at,source_document_id,source_url,evidence_basis,source_row_id
+KR7069500007,US0378331005,Apple Inc.,0.1200,2026-01-11,10,USD,1200,source_published,source_isin,2026-01-12T00:00:00+00:00,fixture-doc-1,https://www.sec.gov/fixture.xml,regulatory_filing,row:1
+KR7069500007,US5949181045,Microsoft Corp.,0.1150,2026-03-11,11,USD,1150,source_published,source_isin,2026-03-12T00:00:00+00:00,fixture-doc-2,https://www.sec.gov/fixture.xml,regulatory_filing,row:2
+KR7069500007,US0231351067,Amazon.com Inc.,0.0710,2026-05-11,7,USD,710,source_published,source_isin,2026-05-12T00:00:00+00:00,fixture-doc-3,https://www.sec.gov/fixture.xml,regulatory_filing,row:3
+KR7069500007,US02079K3059,Alphabet Inc. Class A,0.0630,2026-07-11,6,USD,630,source_published,source_isin,2026-07-11T12:00:00+00:00,fixture-doc-4,https://www.sec.gov/fixture.xml,regulatory_filing,row:4
+KR7130910000,KR7005930003,Samsung Electronics Co. Ltd.,0.1900,2026-01-11,19,KRW,1900,source_published,source_isin,2026-01-12T00:00:00+00:00,fixture-doc-5,https://manager.example/fixture.csv,manager_published,row:5
+KR7130910000,KR7357200009,Kakao Corp.,0.0520,2026-03-11,5,KRW,520,source_published,source_isin,2026-03-12T00:00:00+00:00,fixture-doc-6,https://manager.example/fixture.csv,manager_published,row:6
+KR7130910000,KR7035720002,KakaoBank Corp.,0.0410,2026-05-11,4,KRW,410,source_published,source_isin,2026-05-12T00:00:00+00:00,fixture-doc-7,https://manager.example/fixture.csv,manager_published,row:7
+KR7130910000,KR7035420009,NAVER Corp.,0.0840,2026-07-11,8,KRW,840,source_published,source_isin,2026-07-11T12:00:00+00:00,fixture-doc-8,https://manager.example/fixture.csv,manager_published,row:8
