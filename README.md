@@ -133,7 +133,7 @@ planned work; their order roughly follows implementation priority.
 - [ ] Add service observability, secrets handling, source-health reporting, and
       a reproducible production deployment.
 
-Current test baseline: **183 passed and 2 environment-gated integration tests
+Current test baseline: **184 passed and 2 environment-gated integration tests
 skipped** without a live test Neo4j URI.
 
 ## Current external-ingestion status
@@ -161,7 +161,7 @@ Implemented:
   and a successful idempotent load into a disposable local Neo4j staging
   container; and
 - secret scanning, proxy-connect checks, rsync/checksum transfer tooling, and
-  183 passing offline tests.
+  184 passing offline tests.
 
 Known blockers and unfinished work:
 

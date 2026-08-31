@@ -413,7 +413,7 @@ checks must be added and run when implemented.
 ```bash
 # current
 bash scripts/secret_scan.sh                         # existing secret scan
-uv run pytest                                       # existing test suite; historical baseline: 183 passed / 2 skipped
+uv run pytest                                       # existing test suite; historical baseline: 184 passed / 2 skipped
 uv run python -m compileall src                     # byte-compile check
 
 # blocked until refreshed local data/graph is available
