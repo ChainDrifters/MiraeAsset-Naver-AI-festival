@@ -7,12 +7,13 @@ ingestion framework**. Live external backfill, corporate/disclosure/theme
 evidence, the natural-language query service, and the answer-generation API
 remain incomplete.
 
-Current data boundary: the loaded local baseline is historical **2026-07-11**.
-The refreshed organizer distribution (4 data files + 4 schema files; domestic
-through business date **2026-08-22**, overseas through Korea time
-**2026-08-23**) is not present in this checkout and has not been loaded,
-diffed, or measured locally. See [`docs/plan.md`](docs/plan.md) and the
-historical baseline in
+Current data boundary: the active organizer baseline is fixed at
+**2026-07-11**. XLSX intake must use `data/1.금융상품` with an explicit
+`--input-dir "data/1.금융상품"` on dry-run/load commands. Later organizer
+announcements or files, including 2026-08-22/2026-08-23 refresh notices, are
+superseded audit context only: they must never be loaded into the active graph
+or used for active capability claims. See [`docs/plan.md`](docs/plan.md) and the
+baseline evidence in
 [`docs/evaluation/historical-data-capabilities-2026-07-11.md`](docs/evaluation/historical-data-capabilities-2026-07-11.md)
 before claiming that a question is answerable.
 
@@ -23,7 +24,8 @@ planned work; their order roughly follows implementation priority.
 
 ### Data and graph foundation
 
-- [x] Load the four supplied XLSX datasets and their schema workbooks.
+- [x] Implement and historically verify loading for the four supplied XLSX
+      datasets and their schema workbooks.
 - [x] Preserve every nonblank source value with file/row provenance.
 - [x] Build canonical bond, ETF, ETN, fund, unit, organization, benchmark,
       listing, offering, classification, and observation nodes.
@@ -46,10 +48,14 @@ planned work; their order roughly follows implementation priority.
       crosswalks beyond the contest entity set.
 - [ ] Implement snapshot supersession, correction, disappearance, and deletion
       semantics for later XLSX loads.
-- [ ] Restore the refreshed organizer distribution locally (4 data tables + 4
-      schema files), diff it against the historical 2026-07-11 baseline, reload,
-      and measure refreshed capability without claiming success before commands
-      pass.
+- [x] Verify the fixed 2026-07-11 organizer baseline file set from
+      `data/1.금융상품`: eight local files found, all four data/schema pairs match
+      the 2026-07-11 declaration, data/schema column counts align, and raw data
+      rows are 42,394 / 1,734 / 5,646 / 95,619.
+- [x] Run the fixed-baseline dry-run with explicit
+      `--input-dir "data/1.금융상품"`.
+- [ ] Load the fixed baseline into Neo4j and validate graph totals; do not claim
+      current graph readiness until this passes.
 
 ### External evidence and ontology enrichment
 
@@ -133,7 +139,7 @@ planned work; their order roughly follows implementation priority.
 - [ ] Add service observability, secrets handling, source-health reporting, and
       a reproducible production deployment.
 
-Current test baseline: **184 passed and 2 environment-gated integration tests
+Current test baseline: **203 passed and 2 environment-gated integration tests
 skipped** without a live test Neo4j URI.
 
 ## Current external-ingestion status
@@ -161,7 +167,7 @@ Implemented:
   and a successful idempotent load into a disposable local Neo4j staging
   container; and
 - secret scanning, proxy-connect checks, rsync/checksum transfer tooling, and
-  184 passing offline tests.
+  203 passing offline tests.
 
 Known blockers and unfinished work:
 
@@ -171,7 +177,7 @@ Known blockers and unfinished work:
 - separate authorization and credentials are still required before loading the
   verified staging bundle into the Yeongmin Neo4j database;
 - Tailscale SSH/rsync parameters are required for raw-artifact transfer;
-- `xlsx_data/` is absent from this checkout; and
+- fixed-baseline Neo4j load and graph validation remain pending; and
 - target coverage beyond the first KSTR N-PORT filing, OpenDART control
   ingestion, disclosure passages, theme history, and golden answerability tests
   are not implemented.
@@ -182,8 +188,12 @@ comparison, and ranking by a user-supplied metric remain in scope.
 
 ## Historical loaded dataset and graph
 
-The counts below are the preserved local baseline from the 2026-07-11 organizer
-files. They are not refreshed organizer 4+4 distribution measurements.
+The row counts below are the fixed active baseline from the 2026-07-11 organizer
+files. They are not later organizer refresh measurements. Baseline input
+discovery found eight local files under `data/1.금융상품`; all four data/schema
+pairs match the 2026-07-11 declaration, data/schema column counts align, and no
+commit status for those local files is claimed here. Current fixed-baseline
+Neo4j load and graph validation remain pending.
 
 | Dataset | Source rows | Canonical result |
 |---|---:|---|
@@ -193,9 +203,9 @@ files. They are not refreshed organizer 4+4 distribution measurements.
 | Public funds | 95,619 | 11,138 funds and 11,138 units; one malformed row rejected |
 | **Total** | **145,393** | **145,392 linked source rows** |
 
-Validated graph totals include 17,877 funds, 17,877 fund units, 591 ETNs,
-32,303 listings, and 67,825 observations, with no duplicate resource URIs or
-unlinked non-rejected source rows.
+Preserved historical graph totals include 17,877 funds, 17,877 fund units,
+591 ETNs, 32,303 listings, and 67,825 observations, with no duplicate resource
+URIs or unlinked non-rejected source rows.
 
 The observations are point-in-time records from one historical load—not
 per-product history. The local historical XLSX baseline does not include ETF
@@ -282,8 +292,9 @@ on the checklist.
 
 Requirements: Docker with Compose and
 [`uv`](https://docs.astral.sh/uv/). The neosemantics plugin is present in this
-repository. `xlsx_data/` is absent from this checkout; restore the organizer
-files locally before running XLSX load commands.
+repository. Active XLSX commands must point at the fixed 2026-07-11 organizer
+baseline under `data/1.금융상품`; do not substitute any legacy directory or
+later organizer files.
 
 ```bash
 cp .env.example .env
@@ -292,8 +303,8 @@ cp .env.example .env
 docker compose up -d neo4j-2 neo4j-proxy-2
 uv sync
 
-uv run mirae-graph dry-run
-uv run mirae-graph load --batch-size 500
+uv run mirae-graph dry-run --input-dir "data/1.금융상품"
+uv run mirae-graph load --input-dir "data/1.금융상품" --batch-size 500
 uv run mirae-graph validate
 ```
 
@@ -301,6 +312,7 @@ Load selected datasets by repeating `--dataset`:
 
 ```bash
 uv run mirae-graph load \
+  --input-dir "data/1.금융상품" \
   --dataset domestic_bonds \
   --dataset domestic_etf_etn
 ```
@@ -358,7 +370,7 @@ licensing/rate-limit cautions, and delivery sequence are in
 ├── ontology/              # five current FIBO-aligned Turtle modules
 ├── plugins/               # neosemantics plugin used by Compose
 ├── src/mirae_asset_graph/ # XLSX model, loader, CLI, and validation
-├── xlsx_data/             # local-only organizer workbooks when restored; absent in this checkout
+├── data/1.금융상품/       # fixed 2026-07-11 organizer baseline input directory
 ├── docker-compose.yaml
 ├── pyproject.toml
 └── uv.lock
@@ -373,7 +385,7 @@ evidence that its data or execution path currently exists.
 
 | Document | Status / authority | Use it for |
 |---|---|---|
-| [`docs/plan.md`](docs/plan.md) | **Current source of truth** | Active priorities, blockers, execution order, and refreshed-data pending status |
+| [`docs/plan.md`](docs/plan.md) | **Current source of truth** | Active priorities, blockers, execution order, fixed-baseline rules, and external backlog |
 | [`docs/README.md`](docs/README.md) | Start-here index | Documentation authority order and status map |
 | [`docs/requirements/contest.md`](docs/requirements/contest.md) | Requirements context | Contest interpretation and target behavior; not implementation status |
 | [`docs/evaluation/historical-data-capabilities-2026-07-11.md`](docs/evaluation/historical-data-capabilities-2026-07-11.md) | Historical baseline | Loaded 2026-07-11 XLSX/graph evidence boundary and sample-question decisions |
