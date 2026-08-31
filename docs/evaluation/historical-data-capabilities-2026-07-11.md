@@ -1,21 +1,24 @@
-# Current XLSX capability and contest-gap assessment
+# Historical 2026-07-11 XLSX capability and contest-gap assessment
 
-Status: **current capability baseline**, reviewed 2026-08-10.
+Status: **historical loaded baseline**, reviewed 2026-08-10 and relabeled as
+historical 2026-07-11 pending refreshed R1 data.
 
-This document answers a narrow question: what can be supported by the four
-provided `20260711` XLSX data workbooks and the graph currently loaded from
-them? It aligns that answer with the requirements interpretation in
-[`contest_req.md`](contest_req.md). Planned external enrichment is deliberately
-separate in [`external-data-plan.md`](external-data-plan.md).
+This document answers a narrow historical question: what was supported by the
+four provided `20260711` XLSX data workbooks and the graph loaded from them? It
+aligns that answer with the requirements interpretation in
+[`../requirements/contest.md`](../requirements/contest.md). Planned external
+enrichment is deliberately separate in
+[`../external/external-data-plan.md`](../external/external-data-plan.md). It does
+not claim refreshed organizer data is present, loaded, diffed, or measured.
 
 ## Executive conclusion
 
-The current graph is a strong product-master and provenance graph. It supports
+The historical loaded graph is a strong product-master and provenance graph. It supports
 identity, product type, manager or issuer, listings, classifications, exact
 source fields, and many point-in-time product metrics where the XLSX value is
 populated.
 
-It does **not** currently support the three relationship-heavy example
+It did **not** support the three relationship-heavy example
 questions end to end:
 
 - Cambricon in China semiconductor ETFs requires dated ETF holdings and a
@@ -50,8 +53,8 @@ or holding relationship existed repeatedly during the last six months.
 
 Every nonblank source cell is preserved on its `SourceRecord`, and normalized
 fields are promoted to canonical nodes where the mapping is sufficiently clear.
-See [`data-loading.md`](data-loading.md) for graph totals and
-[`xlsx-field-reference.md`](xlsx-field-reference.md) for field semantics.
+See [`../data/loading-record.md`](../data/loading-record.md) for graph totals and
+[`../data/xlsx-field-reference.md`](../data/xlsx-field-reference.md) for field semantics.
 
 ## Field existence is not data availability
 
@@ -104,7 +107,7 @@ evidence pipeline together.
 
 ## Contest alignment
 
-[`contest_req.md`](contest_req.md) says the system should model semantics,
+[`../requirements/contest.md`](../requirements/contest.md) says the system should model semantics,
 connect heterogeneous facts, retrieve evidence with the appropriate mechanism,
 return provenance, and abstain when evidence is insufficient. The current graph
 already contributes to the first, second, and provenance goals for the supplied
@@ -142,7 +145,7 @@ Status meanings:
 | 10 | 국내 배당형 ETF 중 분기배당이고 운용보수가 낮은 상품 추천해줘 | **Unsupported** | Same missing dividend-frequency evidence; “low” and the recommendation objective must be defined. |
 | 11 | TIGER 2차전지테마의 보수율과 추적오차 위험을 같이 알려줘 | **Unsupported for the requested metrics** | The target row has blank `cu_charge_rt` and `du_chas_errt = 0.00`; all populated domestic tracking-error values are `0.00`. The current risk grade is not a substitute for a tracking-error risk explanation. |
 
-The compact checklist in [`sample_questions.md`](sample_questions.md) mirrors
+The compact checklist in [`historical-sample-questions-regression.md`](historical-sample-questions-regression.md) mirrors
 these decisions.
 
 ## Safe answer contract

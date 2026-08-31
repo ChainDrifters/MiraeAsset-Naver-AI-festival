@@ -1,9 +1,13 @@
-# Sample-question answerability checklist
+# Historical sample-question regression checklist
 
-This is the concise evaluation view for the four supplied `20260711` XLSX
-workbooks. Detailed evidence, field populations, and status definitions are in
-[`current-data-capabilities.md`](current-data-capabilities.md). Planned external
-evidence is in [`external-data-plan.md`](external-data-plan.md).
+This is the preserved regression view for the historical four supplied
+`20260711` XLSX workbooks. These outcomes remain golden/regression expectations
+for the old loaded baseline; they do not override the current plan or claim
+refreshed organizer data is loaded. Detailed evidence, field populations, and
+status definitions are in
+[`historical-data-capabilities-2026-07-11.md`](historical-data-capabilities-2026-07-11.md).
+Planned external evidence is in
+[`../external/external-data-plan.md`](../external/external-data-plan.md).
 
 | # | Question | Current status | Missing evidence or rule |
 |---:|---|---|---|
