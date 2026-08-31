@@ -4,9 +4,10 @@
 > an early target architecture. It assumes an RDB, vector index, holdings,
 > corporate relationships, an evaluation API, and query components that are not
 > present in the current repository, and some examples/counts are stale. Use
-> [`README.md`](../README.md) as the project and documentation index,
-> [`current-data-capabilities.md`](current-data-capabilities.md) for verified
-> current behavior, and [`external-data-plan.md`](external-data-plan.md) for the
+> [`README.md`](../../README.md) as the project index,
+> [`../README.md`](../README.md) as the documentation index,
+> [`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md) for the preserved historical baseline, and
+> [`../external/external-data-plan.md`](../external/external-data-plan.md) for the
 > future enrichment design.
 
 An AI-powered financial product search agent built for the MiraeAsset × Naver AI Festival hackathon. The agent answers natural language queries about financial products (ETFs, bonds, funds) using **Ontology-grounded Federated Retrieval** across a Knowledge Graph, RDB, and Vector DB — with **HyperclovaX** as the final answer generation layer.
