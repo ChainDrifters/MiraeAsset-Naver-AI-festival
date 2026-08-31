@@ -1,11 +1,14 @@
 # Planned external-data and ontology enrichment
 
-Status: **future plan; no source below is currently loaded**. Source availability
-and official documentation were reviewed on 2026-08-10.
+Status: **future plan; no production/current answering-graph external corpus is
+loaded**. The only exception is the verified KSTR proof loaded into disposable
+local staging, documented in [`../data/loading-record.md`](../data/loading-record.md);
+this does not claim Yeongmin or production loading. Source availability and
+official documentation were reviewed on 2026-08-10.
 
 This plan covers evidence that the four supplied XLSX workbooks do not contain.
 It does not change the current capability claims in
-[`current-data-capabilities.md`](current-data-capabilities.md).
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md).
 
 ## Design decision: separate modules, linked to current entities
 
@@ -75,19 +78,26 @@ its basis.
 
 ### Controlled vocabularies and comparison data
 
-Fetch these before adding business rules:
+The organizer's internal vendor code-value table is unavailable and is not a
+blocker or dependency. Preserve opaque vendor codes raw, do not infer their
+meanings, and leave codebook-dependent ordering unsupported unless a separately
+trusted authoritative scale is available for that exact comparison.
+
+Separately authoritative public scales and dictionaries may be added only where
+they support specific comparisons:
 
 - rating-agency identities, symbols, scale ordering, outlook/watch status, and
-  effective dates;
-- the source vendor's code dictionaries and precise formulas/units for the 207
-  current XLSX fields;
-- ETF risk-grade scales and their versions;
-- fund-family/share-class and organization-code crosswalks;
-- market/MIC, currency, country, and security-identifier dictionaries; and
+  effective dates for questions such as “AA- 이상”;
+- ETF risk-grade scales and their versions when a source publishes a versioned
+  scale applicable to the active dataset;
+- fund-family/share-class and organization-code crosswalks when identity or
+  family grouping is required;
+- market/MIC, currency, country, and security-identifier dictionaries for venue,
+  currency, country, and identifier normalization; and
 - dated FX rates if AUM values in different currencies will be ranked together.
 
-These items are small compared with holdings, but they unlock safe validation
-of questions such as “AA- 이상” and eliminate several current ambiguities.
+These items unlock only the validations they directly support; they are not a
+license to reinterpret unavailable internal vendor codes.
 
 ## Reliable source hierarchy
 
@@ -246,16 +256,22 @@ stored, but must not silently leak into a historical answer.
 
 ## Recommended delivery order
 
-1. Obtain the current vendor field/code dictionaries and rating scales; add
-   property declarations and SHACL for already loaded data.
-2. Add canonical company/security identifiers and reviewed crosswalks.
-3. Add Korean ETF holdings, fee/distribution/tracking data, and official fund
-   disclosure documents.
-4. Add Korean corporate-control evidence from OpenDART original filings.
-5. Add overseas holdings adapters, starting with SEC N-PORT/EDGAR because most
-   current overseas rows already expose a CIK-like value.
+1. Restore the refreshed organizer 4+4 distribution locally, record filenames
+   and checksums, diff it against the historical 2026-07-11 baseline, reload,
+   and measure capability/eligibility coverage before making refreshed claims.
+2. Add the metric capability/eligibility registry and source-backed rules for
+   zero/missing exclusion, compatible cohorts, dates, units, currencies, and
+   overseas ETF 1-year-return exclusion.
+3. Add canonical company/security identifiers and reviewed crosswalks only where
+   current query-capability gaps require them.
+4. Selectively add Korean ETF holdings, fee/distribution/tracking data, official
+   fund disclosure documents, and Korean corporate-control evidence from
+   OpenDART original filings according to measured query-capability gaps.
+5. Extend overseas holdings adapters, starting with SEC N-PORT/EDGAR where
+   product coverage requires it.
 6. Backfill monthly or event-driven portfolio/theme snapshots and add document
-   passage retrieval.
+   passage retrieval only where those evidence types are needed for supported
+   capabilities.
 7. Add EDINET, ESEF/OAM, Companies House/FCA, and Chinese-exchange adapters as
    actual product coverage requires them.
 
