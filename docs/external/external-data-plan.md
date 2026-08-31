@@ -2,13 +2,27 @@
 
 Status: **future plan; no production/current answering-graph external corpus is
 loaded**. The only exception is the verified KSTR proof loaded into disposable
-local staging, documented in [`../data/loading-record.md`](../data/loading-record.md);
-this does not claim Yeongmin or production loading. Source availability and
-official documentation were reviewed on 2026-08-10.
+local staging, documented in [`../data/loading-record.md`](../data/loading-record.md):
+one 2026-03-31 filing normalized to **51** positions. This does not claim
+Yeongmin or production loading. Source availability and official documentation
+were reviewed on 2026-08-10.
 
 This plan covers evidence that the four supplied XLSX workbooks do not contain.
-It does not change the current capability claims in
+It does not change the fixed 2026-07-11 capability claims in
 [`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md).
+Later organizer announcements or files, including 2026-08-22/2026-08-23 refresh
+notices, are superseded audit context only and must never be used as active load
+inputs.
+
+External timestamp fields are separate:
+
+- `asOf`: snapshot/portfolio/reporting date represented by the facts;
+- `effectiveAt`: business-effective date or validity start of an assertion;
+- `publishedAt`: when the source made the evidence available or filed it; and
+- `retrievedAt`: when this project fetched the immutable raw artifact.
+
+Do not substitute one of these dates for another in collection filters,
+answerability, or historical cutoffs.
 
 ## Design decision: separate modules, linked to current entities
 
@@ -209,10 +223,10 @@ Use assertion/snapshot nodes when a bare edge would lose time or provenance:
 ```
 
 Every snapshot/assertion must carry source, `asOf` or validity interval,
-publication time, retrieval time, and extraction method. Derived theme or
-control assertions should also carry rule/model version and confidence; facts
-explicitly stated by an authoritative source should be distinguishable from
-inference.
+`effectiveAt`, `publishedAt`, `retrievedAt`, and extraction method as separate
+fields. Derived theme or control assertions should also carry rule/model version
+and confidence; facts explicitly stated by an authoritative source should be
+distinguishable from inference.
 
 ## Evidence needed for the three difficult questions
 
@@ -251,14 +265,25 @@ Required gates before a source is called production-reliable:
 - source outages return stale/partial status rather than fabricated freshness.
 
 For a contest cutoff, freeze the external evidence set by `publishedAt` and
-retain `effectiveAt` and `retrievedAt` separately. A later correction may be
-stored, but must not silently leak into a historical answer.
+retain `asOf`, `effectiveAt`, and `retrievedAt` separately. A later correction
+may be stored, but must not silently leak into a historical answer.
+
+## Prioritized collection backlog
+
+| Priority | Evidence area/capability | Official source | Required identifiers/history | Current readiness/status | Blocker | Next action |
+|---|---|---|---|---|---|---|
+| P1 | Holdings and security mappings | SEC N-PORT; manager official CSV/XLSX; KRX only with contract | Fund/unit IDs, ISIN/ticker/MIC, security-to-company IDs, dated holdings with `asOf`/`publishedAt`/`retrievedAt` | KSTR N-PORT has 51 collected positions in local staging; manager CSV target unresolved; KRX contract-gated | Manager target discovery and KRX approval | Expand reviewed targets; resolve manager CSV; collect next SEC/manager holdings |
+| P1 | Corporate control | OpenDART corp-code/original filings | `corp_code`, stock/security IDs, parent/child IDs, ownership %, control basis, `effectiveAt`/`publishedAt`/`retrievedAt` history | Local key authorized; no collector yet; no OpenDART call occurred | Collector/extractor absent | Build corp-code sync and filing-backed control extractor |
+| P1 | Disclosures and XBRL | OpenDART/DART, KOFIA, SEC EDGAR/original filings | Filing receipt/accession, taxonomy QName, contexts, periods, units, amendment and passage anchors | Design only; no production collector, XBRL fact store, or document corpus | Parser/document acquisition absent | Implement selective filing/document collection and anchoring |
+| P1 | Comparable metrics | Organizer baseline plus official manager/regulator/exchange/index/FX sources | Product IDs, metric definitions, unit, currency, denominator, `asOf`/`effectiveAt`/`publishedAt`/`retrievedAt` history | No comparable external metric corpus; baseline fields remain sparse/non-informative where documented | Source/date/definition mismatch risk | Define registry entries and collect only cohort-compatible metrics |
+| P2 | Benchmark and theme evidence | Index administrators, official methodologies, manager disclosures | Index IDs, constituents/weights, controlled theme terms, snapshot/change history | No production benchmark/theme corpus | Source selection/licensing and theme vocabulary absent | Choose official sources and backfill only required histories |
 
 ## Recommended delivery order
 
-1. Restore the refreshed organizer 4+4 distribution locally, record filenames
-   and checksums, diff it against the historical 2026-07-11 baseline, reload,
-   and measure capability/eligibility coverage before making refreshed claims.
+1. Use the completed fixed-baseline discovery and dry-run evidence for
+   `data/1.금융상품`; load only that baseline with explicit
+   `--input-dir "data/1.금융상품"` and validate graph totals before making graph
+   readiness claims. Later organizer files must not be loaded.
 2. Add the metric capability/eligibility registry and source-backed rules for
    zero/missing exclusion, compatible cohorts, dates, units, currencies, and
    overseas ETF 1-year-return exclusion.

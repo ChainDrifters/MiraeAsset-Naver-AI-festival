@@ -4,9 +4,11 @@
 |---|---|
 | Status | **Active** — execution plan and progress source of truth |
 | Contest priority | Hidden-evaluation API correctness, evidence quality, latency, and proposal documentation |
-| Historical baseline | Completed local XLSX/Neo4j foundation used the organizer files dated **2026-07-11** and the external-ingestion policy window **2026-01-11 → 2026-07-11** |
-| Refreshed organizer distribution | Announced as **4 data tables + 4 schema files**; domestic data through business date **2026-08-22** and overseas data through Korea time **2026-08-23** |
-| Refreshed local status | **Pending** — `xlsx_data/` is absent locally, so the refreshed files have not been loaded, diffed, or measured |
+| Active organizer baseline | Fixed at the organizer files dated **2026-07-11** |
+| Baseline input directory | `data/1.금융상품`; dry-run/load commands must pass `--input-dir "data/1.금융상품"` explicitly |
+| Baseline verification status | File-set discovery and dry-run complete; Neo4j load and graph validation pending |
+| Later organizer announcements | **Superseded audit context only** — files after 2026-07-11, including 2026-08-22/2026-08-23 notices, must never be loaded into the active graph or used for active capability claims |
+| Historical external policy | Completed Phase-3 ingestion used the policy window **2026-01-11 → 2026-07-11** |
 | Excluded scope | Investment recommendation, suitability judgment, customer profiling, and recommendation scoring |
 
 ## Authoritative references
@@ -35,7 +37,7 @@ single hidden question in one turn when evidence is sufficient, return supported
 partial facts when only some clauses are supported, and abstain safely when a
 question is impossible or under-evidenced. The execution focus is now:
 
-1. refreshed official data intake and reload;
+1. fixed 2026-07-11 official baseline verification and reproducible command inputs;
 2. explicit product-family metric capability and eligibility rules;
 3. bounded planner/DSL execution and `GET /answer` evaluation API;
 4. cross-product comparisons only over metric-compatible cohorts;
@@ -47,11 +49,15 @@ The three previously emphasized example questions are now **regression/golden
 cases**, not the plan's controlling goals. No additional public examples are
 expected, so coverage must be driven by a query-capability test matrix.
 
-## Historical baseline and superseded assumptions
+## Fixed baseline and superseded assumptions
 
-- The 2026-07-11 data reference snapshot and 2026-01-11 → 2026-07-11 backfill
-  window are a **historical baseline for completed work**, not the current
-  authoritative contest data snapshot.
+- The 2026-07-11 organizer files are the **fixed active baseline**. The
+  2026-01-11 → 2026-07-11 external backfill window remains a historical
+  Phase-3 policy for completed ingestion work.
+- The later organizer refresh announcement, including 2026-08-22 domestic and
+  2026-08-23 overseas dates, is superseded audit context only. It must never be
+  loaded into the active graph, treated as a reload target, or used to expand
+  answerability claims.
 - The older non-goal “no natural-language planner, DSL compiler, or evaluation
   HTTP API this cycle” is superseded. Those items are now P0.
 - The older hard 2026-08-30 internal deadline is superseded by the hidden
@@ -71,8 +77,13 @@ expected, so coverage must be driven by a query-capability test matrix.
 - No inference of holdings, theme history, benchmark constituents, subsidiaries,
   or corporate relations from a product name. Product-name parsing is allowed
   only for candidate/search classification and must be labeled as such.
-- No claim that refreshed files were loaded or measured until `xlsx_data/` is
-  restored and the reload/diff commands succeed.
+- No loading from legacy directories or later organizer files. Active XLSX
+  dry-run and load commands must use `data/1.금융상품` with explicit
+  `--input-dir "data/1.금융상품"`.
+- Fixed-baseline input discovery found eight local files under
+  `data/1.금융상품`; all four data/schema pairs match the 2026-07-11 declaration,
+  data/schema column counts align, and no commit status for those local files is
+  claimed.
 
 ## Data and evidence rules
 
@@ -80,9 +91,10 @@ expected, so coverage must be driven by a query-capability test matrix.
 
 1. Prefer organizer files, regulators, exchanges, official filing repositories,
    index administrators, and fund managers over aggregators.
-2. Preserve immutable raw artifacts with source URL/path, retrievedAt,
-   published/effective dates where known, checksum, parser version, and row/fact
-   or passage lineage.
+2. Preserve immutable raw artifacts with source URL/path, checksum, parser
+   version, and row/fact or passage lineage. Store `asOf`, `effectiveAt`,
+   `publishedAt`, and `retrievedAt` separately; never collapse publication,
+   effective, snapshot, and retrieval times into one date.
 3. Later corrections append dated assertions; they do not overwrite historical
    evidence silently.
 4. External enrichment may fill missing fields only when source, method, and
@@ -175,7 +187,7 @@ Initial required entries:
 | Overseas ETF/ETN | 1-year return | — | **Unsupported/excluded** | The current overseas master has `du_er_1d` only; do **not** substitute `du_er_1d` for a 1-year return. Explain the exclusion. |
 | Domestic bond | Buyable quantity | `BUYABLE_QUANTITY` | Supported for positive available quantities | Exclude null/zero when answering “currently buyable/available quantity” filters; disclose sparse coverage. |
 | Domestic ETF/ETN | Fee | `cu_charge_rt` | Supported only for populated eligible rows | Exclude null; disclose sparse population. |
-| Domestic ETF/ETN | Tracking error | `du_chas_errt` | Currently non-informative in historical baseline | Preserve raw `0.00`; do not rank/explain tracking-error risk from all-zero values without refreshed/authoritative evidence. |
+| Domestic ETF/ETN | Tracking error | `du_chas_errt` | Currently non-informative in the fixed baseline | Preserve raw `0.00`; do not rank/explain tracking-error risk from all-zero values without separately authoritative evidence. |
 
 Cross-product behavior is a required capability design, but this plan does not
 invent an organizer answer to the unanswered channel question. Cross-product
@@ -226,6 +238,18 @@ golden regression cases, including unsupported and empty outcomes.
 
 The fallback path proceeds regardless of KRX approval status; only recorded
 written approval flips KRX to GO.
+
+Current external collection status:
+
+- KSTR SEC N-PORT: one reviewed 2026-03-31 filing collected, normalized to
+  **51** positions, zero quarantines, and loaded only into disposable local
+  Neo4j staging.
+- Korean manager CSV/XLSX fallback: adapter exists, but the real manager CSV
+  target remains unresolved and no production manager bundle is ready.
+- KRX baskets/PDF/API: contract-gated; no scraping, automation, or redistribution
+  until written approval exists.
+- OpenDART: authorized local key exists in `.env`, but there is no collector yet
+  and no OpenDART call has occurred.
 
 ## Historical implementation record (verified; preserve)
 
@@ -321,9 +345,9 @@ staging. No Yeongmin Neo4j write or OpenDART call has occurred.
 
 ## Current blockers
 
-| Blocker | Missing input | Unblocks |
+| Blocker | Current gap | Unblocks |
 |---|---|---|
-| Refreshed organizer files absent locally | `xlsx_data/` containing 4 refreshed data tables + 4 schema files | R1 intake, diff, reload, refreshed metric coverage measurement |
+| Fixed-baseline graph load/validation | Neo4j load and `mirae-graph validate` evidence for the already discovered 2026-07-11 baseline | Current graph readiness and active capability claims beyond dry-run |
 | Yeongmin Neo4j remote credentials/authorization | Explicit remote URI/database/user/password and post-staging approval | Remote graph validation and deployment connection |
 | `MIRAE_RAW_REMOTE` + SSH key | Tailscale host/user/key details | rsync raw-artifact transfer |
 
@@ -340,19 +364,24 @@ OpenCode/Gemini process-route issue is not an execution blocker for this plan.
       metric capability, zero/null eligibility, answer outcomes, and safe audit
       trace requirements.
 
-Scheduling note: while the refreshed organizer files remain absent, R0, R2, and
-R3 may proceed against the historical 2026-07-11 baseline and fixtures. They
-must not claim refreshed coverage, row counts, metric population, or answerability
-until R1 receives, diffs, reloads, and validates the refreshed files.
+Scheduling note: R0, R2, and R3 proceed against the fixed 2026-07-11 baseline
+and fixtures. They must not claim capability coverage, row counts, metric
+population, or answerability beyond the verified fixed baseline and collected
+external evidence.
 
-### R1 — refreshed official data intake, diff, and reload (P0)
+### R1 — fixed baseline verification (P0)
 
-- [ ] Restore the organizer distribution locally: 4 data tables + 4 schema files.
-- [ ] Record filenames, checksums, declared date coverage, row counts, and schema
-      diffs against the 2026-07-11 historical baseline.
-- [ ] Reload into local Neo4j, validate graph totals, and update capability
-      coverage without claiming success before commands pass.
-- [ ] Preserve both historical and refreshed source artifacts immutably.
+- [x] Verify the active organizer files under `data/1.금융상품` are the fixed
+      2026-07-11 baseline: eight local files found, all four data/schema pairs
+      match the 2026-07-11 declaration, data/schema column counts align, and raw
+      data rows are 42,394 / 1,734 / 5,646 / 95,619.
+- [x] Run `uv run mirae-graph dry-run --input-dir "data/1.금융상품"` and preserve
+      the command output before any active graph-readiness claim.
+- [ ] Load only the fixed 2026-07-11 baseline with explicit
+      `--input-dir "data/1.금융상품"`, validate graph totals, and update capability
+      coverage only after commands pass.
+- [ ] Preserve the fixed 2026-07-11 source artifacts immutably; do not preserve
+      later organizer files as load candidates.
 
 ### R2 — capability/eligibility registry (P0)
 
@@ -394,6 +423,16 @@ until R1 receives, diffs, reloads, and validates the refreshed files.
 - [ ] Add missing-value enrichment documentation: what was collected, how it was
       cleaned, where it is used, and when it is excluded.
 
+Prioritized external data collection backlog:
+
+| Priority | Evidence area/capability | Official source | Required identifiers/history | Current readiness/status | Blocker | Next action |
+|---|---|---|---|---|---|---|
+| P1 | Holdings and security mappings | SEC N-PORT; manager official CSV/XLSX; KRX only with contract | Fund/unit IDs, ISIN/ticker/MIC, security-to-company IDs, dated holdings with `asOf`/`publishedAt`/`retrievedAt` | KSTR N-PORT has 51 collected positions in local staging; manager CSV target unresolved; KRX contract-gated | Manager target discovery and KRX approval | Expand reviewed targets; resolve manager CSV; collect next SEC/manager holdings |
+| P1 | Corporate control | OpenDART corp-code/original filings | `corp_code`, stock/security IDs, parent/child IDs, ownership %, control basis, `effectiveAt`/`publishedAt`/`retrievedAt` history | Local key authorized; no collector yet; no OpenDART call occurred | Collector/extractor absent | Build corp-code sync and filing-backed control extractor |
+| P1 | Disclosures and XBRL | OpenDART/DART, KOFIA, SEC EDGAR/original filings | Filing receipt/accession, taxonomy QName, contexts, periods, units, amendment and passage anchors | Ontology/design exists; no production collector or corpus | Parser/document acquisition absent | Implement selective filing/document collection and anchoring |
+| P1 | Comparable metrics | Organizer baseline plus official manager/regulator/exchange/index/FX sources | Product IDs, metric definitions, unit, currency, denominator, `asOf`/`effectiveAt`/`publishedAt`/`retrievedAt` history | No comparable external metric corpus; baseline fields remain sparse/non-informative where documented | Source/date/definition mismatch risk | Define registry entries and collect only cohort-compatible metrics |
+| P2 | Benchmark and theme evidence | Index administrators, official methodologies, manager disclosures | Index IDs, constituents/weights, controlled theme terms, snapshot/change history | No production benchmark/theme corpus | Source selection/licensing and theme vocabulary absent | Choose official sources and backfill only required histories |
+
 ### R6 — hidden-eval QA, deployment, and proposal (P0/P1)
 
 - [ ] Build a query-capability golden matrix covering answerable, partial, empty,
@@ -413,11 +452,11 @@ checks must be added and run when implemented.
 ```bash
 # current
 bash scripts/secret_scan.sh                         # existing secret scan
-uv run pytest                                       # existing test suite; historical baseline: 184 passed / 2 skipped
+uv run pytest                                       # existing test suite; current baseline: 203 passed / 2 skipped
 uv run python -m compileall src                     # byte-compile check
 
-# blocked until refreshed local data/graph is available
-uv run mirae-graph validate                         # graph validation after local reload
+# active baseline graph validation after fixed 2026-07-11 load
+uv run mirae-graph validate                         # graph validation after fixed-baseline load
 
 # blocked until external credentials/inputs are available
 uv run python scripts/connect_check.py              # blocked until Neo4j credentials/authorization
