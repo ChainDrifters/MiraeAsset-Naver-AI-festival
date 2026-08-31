@@ -27,7 +27,7 @@ verified. The header is exactly the ten fields expected by
   this on load, and `tests/test_crosswalk.py` runs it against the real CSV.
 - The verified source universe behind these entities (issuers, listing
   venues, and the official pages reviewed 2026-08-19) is recorded in
-  [`docs/external-sources-decision.md`](../../docs/external-sources-decision.md).
+  [`docs/external/source-decisions-phase3-2026-08-19.md`](../../docs/external/source-decisions-phase3-2026-08-19.md).
 
 ## Freeze guard
 
