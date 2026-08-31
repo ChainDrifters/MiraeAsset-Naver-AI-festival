@@ -1,7 +1,7 @@
 """Normalized holdings records shared by every Phase 3 source adapter.
 
 The field contract is defined by the adapter normalized minimum fields table
-in docs/external-sources-decision.md: missing source values stay null and are
+in docs/external/source-decisions-phase3-2026-08-19.md: missing source values stay null and are
 never imputed; constituent_name is verbatim provenance, never a merge key.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ..model import is_isin
 
-# Domains fixed by docs/external-sources-decision.md.
+# Domains fixed by docs/external/source-decisions-phase3-2026-08-19.md.
 WEIGHT_SOURCES: tuple[str, ...] = ("source_published", "derived_from_value")
 IDENTIFIER_METHODS: tuple[str, ...] = ("source_isin", "crosswalk", "unresolved")
 EVIDENCE_BASES: tuple[str, ...] = ("manager_published", "regulatory_filing")

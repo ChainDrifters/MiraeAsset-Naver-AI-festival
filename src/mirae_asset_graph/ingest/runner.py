@@ -1,7 +1,7 @@
 """Credential-independent ingestion runner and backfill coordinator.
 
 The runner is the shared Phase 3 backfill path recorded in
-docs/external-data-plan.md: it drives one :class:`HoldingsAdapter` through
+docs/external/external-data-plan.md: it drives one :class:`HoldingsAdapter` through
 discover -> fetch -> normalize, then pushes normalized shards into one
 :class:`HoldingsSink`. It never imports or contacts Neo4j itself — the sink
 protocol is satisfied structurally by ``ExternalGraphLoader``, and the fake

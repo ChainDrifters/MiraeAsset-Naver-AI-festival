@@ -1,7 +1,7 @@
 """Korean manager-published basket adapter for the Phase 3 external-evidence pipeline.
 
 KRX basket automation is NEEDS-CONTRACT, so the approved GO fallback recorded
-in docs/external-sources-decision.md is the holdings file the fund manager
+in docs/external/source-decisions-phase3-2026-08-19.md is the holdings file the fund manager
 publishes directly on the official PLUS page: a CSV or XLSX document. This
 adapter fetches those documents over plain ``urllib.request`` (stdlib only)
 with an identifying User-Agent, a conservative default request interval, and
@@ -49,7 +49,7 @@ MANAGER_BASKET_SOURCE = "manager_basket"
 
 FORMAT_HINTS: tuple[str, ...] = ("csv", "xlsx")
 
-# Fair-access defaults recorded in docs/external-sources-decision.md.
+# Fair-access defaults recorded in docs/external/source-decisions-phase3-2026-08-19.md.
 DEFAULT_REQUEST_INTERVAL_SECONDS = 0.25
 DEFAULT_RETRY_COUNT = 3
 

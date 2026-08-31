@@ -1,6 +1,6 @@
 """SEC Form N-PORT adapter for the Phase 3 external-evidence pipeline.
 
-Implements decision 3 of docs/external-sources-decision.md (2026-08-19): the
+Implements decision 3 of docs/external/source-decisions-phase3-2026-08-19.md: the
 public SEC Form N-PORT data sets are a GO source. The adapter honors the
 recorded fair-access constraints — a real identifying User-Agent with contact
 information and no more than 10 requests per second by default — fetches raw
@@ -38,7 +38,7 @@ from .source_policy import validate_source_url
 
 NPORT_SOURCE = "sec_nport"
 
-# Fair-access defaults recorded in docs/external-sources-decision.md, decision 3.
+# Fair-access defaults recorded in docs/external/source-decisions-phase3-2026-08-19.md, decision 3.
 DEFAULT_MAX_REQUESTS_PER_SECOND = 10.0
 DEFAULT_RETRY_COUNT = 3
 
