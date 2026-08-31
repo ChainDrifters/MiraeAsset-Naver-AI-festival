@@ -12,6 +12,8 @@ from urllib.parse import quote
 
 FIBO = "https://spec.edmcouncil.org/fibo/ontology/"
 MA_ONTOLOGY = "urn:miraeasset:ontology:financial-products:"
+ORGANIZER_BASELINE_DATE = date(2026, 7, 11)
+ORGANIZER_BASELINE_DATE_TOKEN = "20260711"
 
 FINANCIAL_INSTRUMENT = FIBO + "FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument"
 DEBT_INSTRUMENT = FIBO + "FBC/FinancialInstruments/FinancialInstruments/DebtInstrument"
@@ -163,6 +165,29 @@ def parsed_date(value: Any) -> date | None:
 def snapshot_date(path: Path) -> date | None:
     match = _SNAPSHOT_RE.search(path.name)
     return parsed_date(match.group(1)) if match else None
+
+
+def validate_organizer_datarows_baseline(path: Path) -> date:
+    """Require organizer datarows workbooks to be the fixed 2026-07-11 baseline."""
+    match = _SNAPSHOT_RE.search(path.name)
+    if not match:
+        raise ValueError(
+            "Organizer datarows workbook must include the fixed baseline date "
+            f"{ORGANIZER_BASELINE_DATE_TOKEN} in its filename: {path.name}"
+        )
+    stamp = parsed_date(match.group(1))
+    if stamp is None:
+        raise ValueError(
+            f"Organizer datarows workbook has a malformed date: {path.name}"
+        )
+    if stamp != ORGANIZER_BASELINE_DATE:
+        found = match.group(1)
+        raise ValueError(
+            "Organizer datarows workbook date is not the fixed baseline "
+            f"{ORGANIZER_BASELINE_DATE.isoformat()} ({ORGANIZER_BASELINE_DATE_TOKEN}): "
+            f"{path.name} has {found}"
+        )
+    return stamp
 
 
 def is_isin(value: Any) -> bool:

@@ -3,14 +3,16 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from typing import cast
 
 from dotenv import load_dotenv
-from neo4j import GraphDatabase
+from neo4j import Driver, GraphDatabase
 
 from .loader import FinancialProductsLoader
 from .model import DATASETS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ORGANIZER_BASELINE_INPUT_DIR = PROJECT_ROOT / "data" / "1.금융상품"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -26,8 +28,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=PROJECT_ROOT / "xlsx_data",
-        help="Directory containing the data and schema workbooks.",
+        default=ORGANIZER_BASELINE_INPUT_DIR,
+        help="Directory containing the fixed 2026-07-11 organizer baseline workbooks.",
     )
     parser.add_argument(
         "--ontology",
@@ -70,7 +72,7 @@ def main() -> None:
 
     if args.command == "dry-run":
         loader = FinancialProductsLoader(
-            driver=None,  # type: ignore[arg-type]
+            driver=cast(Driver, object()),
             input_dir=args.input_dir,
             ontology_path=args.ontology,
             batch_size=args.batch_size,

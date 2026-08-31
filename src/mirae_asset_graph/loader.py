@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from collections.abc import Iterator, Mapping
 from datetime import date
@@ -28,6 +29,7 @@ from .model import (
     NON_TRADABLE_FUND_UNIT,
     PUBLIC_FUND,
     PUBLIC_FUND_UNIT,
+    ORGANIZER_BASELINE_DATE,
     TRADABLE_FUND_UNIT,
     DatasetSpec,
     benchmark,
@@ -47,9 +49,9 @@ from .model import (
     parsed_date,
     raw_properties,
     security_uri,
-    snapshot_date,
     source_record_uri,
     text,
+    validate_organizer_datarows_baseline,
 )
 
 RESOURCE_CONSTRAINT = """
@@ -86,6 +88,10 @@ ONTOLOGY_MODULES = (
     "portfolio.ttl",
     "corporate.ttl",
     "disclosure.ttl",
+)
+
+_SCHEMA_EXTRACTION_DATE_RE = re.compile(
+    r"\[\s*데이터\s+최종\s+추출일자\s*]\s*(\d{4}-\d{2}-\d{2})"
 )
 
 UPSERT_SOURCE_FILE = """
@@ -310,6 +316,8 @@ def _read_rows(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
     workbook = load_workbook(path, read_only=True, data_only=True)
     try:
         worksheet = workbook.active
+        if worksheet is None:
+            raise ValueError(f"Workbook has no active worksheet: {path}")
         iterator = worksheet.iter_rows(values_only=True)
         headers = [str(value) for value in next(iterator)]
         for row_number, values in enumerate(iterator, 2):
@@ -327,6 +335,44 @@ def _batch(iterator: Iterator[tuple[int, dict[str, Any]]], size: int) -> Iterato
             current = []
     if current:
         yield current
+
+
+def validate_organizer_schema_baseline(path: Path) -> date:
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        worksheet = workbook.worksheets[0]
+        found_dates: list[date] = []
+        found_raw: list[str] = []
+        for values in worksheet.iter_rows(values_only=True):
+            for value in values:
+                candidate = text(value)
+                if not candidate:
+                    continue
+                match = _SCHEMA_EXTRACTION_DATE_RE.search(candidate)
+                if not match:
+                    continue
+                stamp = parsed_date(match.group(1))
+                if stamp is None:
+                    raise ValueError(
+                        "Organizer schema workbook extraction date is malformed: "
+                        f"{path.name} declares {match.group(1)}"
+                    )
+                found_dates.append(stamp)
+                found_raw.append(match.group(1))
+        nonbaseline = [raw for raw, stamp in zip(found_raw, found_dates) if stamp != ORGANIZER_BASELINE_DATE]
+        if nonbaseline:
+            raise ValueError(
+                "Organizer schema workbook extraction date is not the fixed baseline "
+                f"{ORGANIZER_BASELINE_DATE.isoformat()}: {path.name} declares {', '.join(nonbaseline)}"
+            )
+        if found_dates:
+            return ORGANIZER_BASELINE_DATE
+    finally:
+        workbook.close()
+    raise ValueError(
+        "Organizer schema workbook must declare the fixed extraction date "
+        f"{ORGANIZER_BASELINE_DATE.isoformat()}: {path.name}"
+    )
 
 
 def _numeric_properties(row: Mapping[str, Any], mapping: Mapping[str, str]) -> dict[str, float]:
@@ -704,6 +750,8 @@ def _transform_public_fund(
             "dataset": dataset,
             "rowNumber": row_number,
         }
+    if item_number is None:
+        raise ValueError("itm_no unexpectedly passed validation with no value")
 
     name = text(row.get("itm_nm")) or item_number
     short_name = text(row.get("itm_abrv_nm"))
@@ -967,8 +1015,10 @@ class FinancialProductsLoader:
         for spec in DATASETS:
             if selected and spec.code not in selected:
                 continue
-            path = self._one_file(spec.data_pattern)
-            stamp = snapshot_date(path)
+            path = self._organizer_data_file(spec)
+            schema_path = self._one_file(spec.schema_pattern)
+            stamp = validate_organizer_datarows_baseline(path)
+            validate_organizer_schema_baseline(schema_path)
             counts: Counter[str] = Counter()
             transformer = TRANSFORMERS[spec.code]
             for row_number, row in _read_rows(path):
@@ -986,9 +1036,10 @@ class FinancialProductsLoader:
         return dict(self.stats)
 
     def _load_dataset(self, spec: DatasetSpec) -> None:
-        data_path = self._one_file(spec.data_pattern)
+        data_path = self._organizer_data_file(spec)
         schema_path = self._one_file(spec.schema_pattern)
-        stamp = snapshot_date(data_path)
+        stamp = validate_organizer_datarows_baseline(data_path)
+        validate_organizer_schema_baseline(schema_path)
         file_uri = f"urn:miraeasset:source-file:{spec.code}:{stamp or 'undated'}:{data_path.name}"
         dataset_uri = f"urn:miraeasset:dataset:{spec.code}"
         self.driver.execute_query(
@@ -1114,6 +1165,36 @@ class FinancialProductsLoader:
         if len(matches) != 1:
             raise ValueError(f"Expected one file for {pattern!r}, found {len(matches)}: {matches}")
         return matches[0]
+
+    def _organizer_data_file(self, spec: DatasetSpec) -> Path:
+        dataset_prefix = spec.data_pattern.split("_", 1)[0]
+        pattern = f"{dataset_prefix}*_datarows.xlsx"
+        matches = sorted(self.input_dir.glob(pattern))
+        if not matches:
+            raise ValueError(f"Expected one organizer datarows file for {spec.data_pattern!r}, found 0")
+
+        baseline_matches: list[Path] = []
+        rejected: list[str] = []
+        for path in matches:
+            try:
+                _ = validate_organizer_datarows_baseline(path)
+            except ValueError as error:
+                rejected.append(str(error))
+            else:
+                baseline_matches.append(path)
+
+        if rejected:
+            details = "; ".join(rejected)
+            raise ValueError(
+                f"Rejected organizer datarows files for {spec.code}; only the 2026-07-11 baseline is allowed. "
+                f"{details}"
+            )
+        if len(baseline_matches) != 1:
+            raise ValueError(
+                f"Expected one organizer 2026-07-11 datarows file for {spec.code}, "
+                f"found {len(baseline_matches)}: {baseline_matches}"
+            )
+        return baseline_matches[0]
 
     def validate(self) -> dict[str, Any]:
         query = """
