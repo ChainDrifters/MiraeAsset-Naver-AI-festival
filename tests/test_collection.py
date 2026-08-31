@@ -430,6 +430,45 @@ def test_conflicting_duplicate_ready_identity_is_rejected(tmp_path: Path) -> Non
         )
 
 
+def test_duplicate_ready_allows_run_id_and_retrieved_at_to_differ(tmp_path: Path) -> None:
+    target = _target()
+    runner = CollectionRunner(
+        _Adapter(target, tmp_path),
+        tmp_path / "manifest",
+        tmp_path / "normalized",
+        stable_target_id=lambda item: item.target_id,
+        document_id=lambda item, raw_sha: item.target_id,
+        config_digest="2" * 64,
+        crosswalk_sha256="3" * 64,
+        normalization_input_digest="4" * 64,
+    )
+    runner.run("refresh-original")
+    original = read_manifest("sec_nport", tmp_path / "manifest")[-1]
+    append_entry(
+        replace(
+            original,
+            run_id="refresh-duplicate",
+            retrieved_at=datetime(2026, 5, 1, tzinfo=UTC),
+        ),
+        tmp_path / "manifest",
+    )
+
+    verified = verify_collection(
+        "sec_nport",
+        [target],
+        tmp_path / "manifest",
+        stable_target_id=lambda item: item.target_id,
+        expected_config_digest="2" * 64,
+        expected_crosswalk_sha256="3" * 64,
+        expected_normalization_input_digest="4" * 64,
+        raw_root=tmp_path,
+        normalized_root=tmp_path / "normalized",
+    )
+
+    assert len(verified) == 1
+    assert len(verified[0].records) == 1
+
+
 def test_ready_batch_id_must_be_canonical(tmp_path: Path) -> None:
     target = _target()
     runner = CollectionRunner(

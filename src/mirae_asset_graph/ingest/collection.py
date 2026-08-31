@@ -363,7 +363,6 @@ def _immutable_ready_evidence(entry: ManifestEntry) -> tuple[object, ...]:
         entry.stable_target_id,
         entry.source_document_id,
         entry.published_at,
-        entry.retrieved_at,
         entry.config_digest,
         entry.crosswalk_sha256,
         entry.normalization_input_digest,
