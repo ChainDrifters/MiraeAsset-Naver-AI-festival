@@ -5,19 +5,19 @@ loaded into the Compose-managed `neo4j-2` database on 2026-08-04.
 
 For a beginner-oriented explanation of the finance concepts, every application
 node and relationship, and the detailed row-to-graph conversion, see
-[`graph-model-guide.md`](graph-model-guide.md).
+[`../architecture/graph-model-guide.md`](../architecture/graph-model-guide.md).
 
 For the meaning and graph treatment of every field in the four XLSX feeds, see
 [`xlsx-field-reference.md`](xlsx-field-reference.md).
 
 For the proposed validated query contract over this graph, see
-[`query-dsl-spec.md`](query-dsl-spec.md).
+[`../architecture/query-dsl-spec.md`](../architecture/query-dsl-spec.md).
 
 For the contest-aligned boundary between currently answerable questions and
 missing evidence, see
-[`current-data-capabilities.md`](current-data-capabilities.md). Planned external
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md). Planned external
 data is documented separately in
-[`external-data-plan.md`](external-data-plan.md).
+[`../external/external-data-plan.md`](../external/external-data-plan.md).
 
 ## Result
 
@@ -51,11 +51,11 @@ All 51 staging positions carried source-document, source-URL,
 
 Runtime artifacts and manifests are kept under git-ignored `var/ingest/`.
 The reviewed target and discovery evidence are tracked under
-`config/ingest/phase3/` and `docs/phase3-target-discovery.md`.
+`config/ingest/phase3/` and `docs/external/phase3-target-discovery.md`.
 The SEC submissions metadata response used for the filing date is retained with
 SHA-256 `1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd`;
 its filing-specific extract is tracked in
-`docs/phase3-sec-metadata-extract.json`.
+`docs/artifacts/phase3-sec-metadata-extract.json`.
 
 | Metric | Loaded |
 |---|---:|

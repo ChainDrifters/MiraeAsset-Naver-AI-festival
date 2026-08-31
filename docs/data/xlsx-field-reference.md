@@ -5,14 +5,14 @@ workbooks under `xlsx_data/`. It is written for readers without a finance
 background.
 
 The graph structure is explained separately in
-[`graph-model-guide.md`](graph-model-guide.md). Loading commands and validation
-results are in [`data-loading.md`](data-loading.md).
+[`../architecture/graph-model-guide.md`](../architecture/graph-model-guide.md). Loading commands and validation
+results are in [`loading-record.md`](loading-record.md).
 
 The normalized fields exposed to applications are specified in
-[`query-dsl-spec.md`](query-dsl-spec.md).
+[`../architecture/query-dsl-spec.md`](../architecture/query-dsl-spec.md).
 
 Observed field population and contest-question consequences are summarized in
-[`current-data-capabilities.md`](current-data-capabilities.md). A column's
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md). A column's
 presence in this reference does not mean that the current data rows populate it.
 
 ## How to read this reference
