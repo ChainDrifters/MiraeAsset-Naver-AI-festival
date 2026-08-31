@@ -7,10 +7,14 @@ ingestion framework**. Live external backfill, corporate/disclosure/theme
 evidence, the natural-language query service, and the answer-generation API
 remain incomplete.
 
-Current data boundary: four financial-product master snapshots dated
-**2026-07-11**. See
-[`docs/current-data-capabilities.md`](docs/current-data-capabilities.md) before
-claiming that a question is answerable.
+Current data boundary: the loaded local baseline is historical **2026-07-11**.
+The refreshed organizer distribution (4 data files + 4 schema files; domestic
+through business date **2026-08-22**, overseas through Korea time
+**2026-08-23**) is not present in this checkout and has not been loaded,
+diffed, or measured locally. See [`docs/plan.md`](docs/plan.md) and the
+historical baseline in
+[`docs/evaluation/historical-data-capabilities-2026-07-11.md`](docs/evaluation/historical-data-capabilities-2026-07-11.md)
+before claiming that a question is answerable.
 
 ## Implementation checklist
 
@@ -33,14 +37,19 @@ planned work; their order roughly follows implementation priority.
 - [ ] Declare operational object/datatype properties formally in OWL.
 - [ ] Add SHACL shapes and validation for graph structure, cardinality, values,
       dates, units, and provenance.
-- [ ] Obtain the source vendor's field definitions, code dictionaries, rating
-      scales, and formula/unit specifications.
+- [x] Record that internal vendor codebooks are unavailable and not a blocker;
+      preserve opaque codes raw, and keep codebook-dependent ordering
+      unsupported unless backed by a separately trusted scale.
 - [x] Add a reviewed contest-entity identity crosswalk with strict identifier
       joins and a tested guard against name-only merges.
 - [ ] Expand reviewed fund-family, organization, market, and identifier
       crosswalks beyond the contest entity set.
 - [ ] Implement snapshot supersession, correction, disappearance, and deletion
       semantics for later XLSX loads.
+- [ ] Restore the refreshed organizer distribution locally (4 data tables + 4
+      schema files), diff it against the historical 2026-07-11 baseline, reload,
+      and measure refreshed capability without claiming success before commands
+      pass.
 
 ### External evidence and ontology enrichment
 
@@ -49,8 +58,9 @@ planned work; their order roughly follows implementation priority.
       quarantine, offline artifact verification, and resumable loads.
 - [x] Implement SEC N-PORT XML and Korean manager-published CSV/XLSX basket
       adapters with offline fixtures and source-specific access controls.
-- [ ] Implement live target discovery, archived-file collection, and the
-      2026-01-11 through 2026-07-11 backfill.
+- [ ] Implement selective external target discovery and backfill according to R5
+      query-capability gaps; the adapter's 2026-01-11 through 2026-07-11 window
+      is a historical Phase-3 policy, not the current contest-wide data policy.
 - [x] Add `portfolio.ttl` and normalized portfolio snapshot/holding loader
       conventions.
 - [ ] Load production dated holdings/creation baskets and benchmark
@@ -68,6 +78,10 @@ planned work; their order roughly follows implementation priority.
       associations, and repeated historical snapshots.
 - [ ] Fetch authoritative fee, distribution, tracking-error, NAV/AUM, and FX
       data with comparable dates, currencies, and metric definitions.
+- [ ] Use selective trusted external enrichment for holdings, corporate control,
+      disclosures, and missing-value support only where query-capability gaps
+      require it, with reportable source reliability, integrity, ETL, and use
+      logic.
 - [ ] Add jurisdiction adapters as coverage requires: OpenDART/KRX/KOFIA,
       SEC EDGAR/N-PORT, EDINET, ESEF national repositories, FCA/Companies House,
       and Chinese exchanges.
@@ -78,13 +92,24 @@ planned work; their order roughly follows implementation priority.
 - [x] Define `answered`, `partial`, `empty`, `invalid`, `unsupported`, and
       `ambiguous` answer outcomes.
 - [ ] Implement semantic DSL validation and compilation to bounded Cypher.
+- [ ] Implement a product-family metric capability/eligibility registry covering
+      zero/null exclusion rules, compatible cohorts, date/unit/currency basis,
+      and evidence requirements.
+- [ ] Encode the overseas ETF 1-year-return exclusion: it is unavailable, must
+      not be substituted with 1-day return, and may be excluded with explanation
+      from cross-product 1-year-return answers.
 - [ ] Implement exact entity resolution, alias handling, and clearly labeled
       near-match suggestions without silent substitution.
 - [ ] Implement natural-language intent/entity extraction and query planning.
+- [ ] Enforce the single-turn API contract: answer each request in one response,
+      infer defensible bounded conditions, and abstain/unavailable safely when
+      evidence is insufficient.
 - [ ] Implement routing across the graph, an XBRL/numeric fact store, and the
       document index.
 - [ ] Implement observation selection, temporal joins, ranking, currency
       normalization, and evidence merging.
+- [ ] Execute cross-product filters/rankings only across metric-compatible
+      cohorts, with per-family denominator and exclusion explanations.
 - [ ] Implement evidence sufficiency checks and contest-safe abstention.
 - [ ] Implement the evaluation HTTP API, response schema, audit trace, timeout,
       and error behavior.
@@ -99,8 +124,9 @@ planned work; their order roughly follows implementation priority.
 - [x] Add environment-gated Neo4j integration tests for external-load
       idempotency and resume behavior.
 - [ ] Add integration tests for provenance and query compilation.
-- [ ] Turn the sample questions into golden answerability/evidence tests,
-      including deliberately unanswerable inputs.
+- [ ] Build a query-capability golden matrix for answerable, partial, empty,
+      invalid, unsupported, timeout, and unanswerable cases; keep historical
+      sample questions as regression cases inside that matrix.
 - [ ] Measure external-source coverage, freshness, corrections, and outage
       behavior.
 - [ ] Meet the contest latency target and test concurrent evaluation requests.
@@ -114,7 +140,7 @@ skipped** without a live test Neo4j URI.
 
 The tracked execution source of truth is [`docs/plan.md`](docs/plan.md). Source
 licensing and access decisions are recorded in
-[`docs/external-sources-decision.md`](docs/external-sources-decision.md).
+[`docs/external/source-decisions-phase3-2026-08-19.md`](docs/external/source-decisions-phase3-2026-08-19.md).
 
 Implemented:
 
@@ -154,7 +180,10 @@ Investment recommendation, suitability judgment, customer profiling, and
 recommendation scoring are explicitly out of scope. Objective filtering,
 comparison, and ranking by a user-supplied metric remain in scope.
 
-## Current dataset and graph
+## Historical loaded dataset and graph
+
+The counts below are the preserved local baseline from the 2026-07-11 organizer
+files. They are not refreshed organizer 4+4 distribution measurements.
 
 | Dataset | Source rows | Canonical result |
 |---|---:|---|
@@ -168,9 +197,10 @@ Validated graph totals include 17,877 funds, 17,877 fund units, 591 ETNs,
 32,303 listings, and 67,825 observations, with no duplicate resource URIs or
 unlinked non-rejected source rows.
 
-The observations are point-in-time records from one load—not per-product
-history. Current XLSX data does not include ETF holdings, corporate-control
-relationships, sourced theme history, or prospectus risk passages.
+The observations are point-in-time records from one historical load—not
+per-product history. The local historical XLSX baseline does not include ETF
+holdings, corporate-control relationships, sourced theme history, or prospectus
+risk passages.
 
 ## Architecture
 
@@ -208,10 +238,11 @@ offline checksum/count/identity verification
 explicitly authorized load -> bounded MERGE batches -> Neo4j portfolio graph
 ```
 
-The production target policy accepts only `sec_nport` and `manager_basket`,
-hard-blocks KRX acquisition identifiers and URLs, and fixes the inclusive
-as-of window to 2026-01-11 through 2026-07-11 with publication cutoff
-2026-07-11T23:59:59Z. CLI bounds may narrow but cannot widen that policy.
+The historical implemented Phase-3 target policy accepts only `sec_nport` and
+`manager_basket`, hard-blocks KRX acquisition identifiers and URLs, and fixes
+the inclusive as-of window to 2026-01-11 through 2026-07-11 with publication
+cutoff 2026-07-11T23:59:59Z. CLI bounds may narrow but cannot widen that
+historical adapter policy; it is not the current contest-wide data policy.
 One real KSTR N-PORT filing has been collected and written to disposable local
 Neo4j staging. No Yeongmin Neo4j write has been performed.
 Artifact verification rejects absolute paths, traversal, escapes, and symlinks,
@@ -250,8 +281,9 @@ on the checklist.
 ## Quick start
 
 Requirements: Docker with Compose and
-[`uv`](https://docs.astral.sh/uv/). The XLSX snapshots and neosemantics plugin
-are already present in this repository.
+[`uv`](https://docs.astral.sh/uv/). The neosemantics plugin is present in this
+repository. `xlsx_data/` is absent from this checkout; restore the organizer
+files locally before running XLSX load commands.
 
 ```bash
 cp .env.example .env
@@ -276,24 +308,24 @@ uv run mirae-graph load \
 Valid dataset codes are `domestic_bonds`, `domestic_etf_etn`,
 `overseas_etf_etn`, and `public_funds`.
 
-## Current answerability
+## Historical answerability baseline
 
-The graph can currently support exact product/identifier lookup, source-backed
-manager/issuer and listing traversal, classifications, provenance, and many
-point-in-time numeric filters where values are populated.
+The historical 2026-07-11 graph baseline can support exact product/identifier
+lookup, source-backed manager/issuer and listing traversal, classifications,
+provenance, and many point-in-time numeric filters where values are populated.
 
 It cannot answer the three relationship-heavy examples end to end:
 
-| Question | Current result | Primary gap |
+| Question | Historical result | Primary gap |
 |---|---|---|
 | Cambricon in China semiconductor ETFs | Unsupported | Dated holdings and company/security identity |
 | Six-month aerospace-theme connections | Unsupported as written | Repeated snapshots and sourced temporal theme links |
 | Largest ETF holding an EcoPro subsidiary, with risks | Unsupported as written | Corporate control, holdings, and risk disclosures |
 
-Field existence is not enough: domestic dividend frequency is entirely blank,
+Field existence is not enough in the historical 2026-07-11 baseline: domestic dividend frequency is entirely blank,
 the main fee field is populated in only 217 of 1,734 ETF/ETN rows, and every
 populated tracking-error value is `0.00`. See the full
-[`answerability matrix`](docs/current-data-capabilities.md#evaluation-of-all-sample-questions).
+[`answerability matrix`](docs/evaluation/historical-data-capabilities-2026-07-11.md#evaluation-of-all-sample-questions).
 
 ## External-data design
 
@@ -308,17 +340,25 @@ original raw formats, then normalize them into the portfolio model.
 
 The source-by-source acquisition plan, required fields, relationship shapes,
 licensing/rate-limit cautions, and delivery sequence are in
-[`docs/external-data-plan.md`](docs/external-data-plan.md).
+[`docs/external/external-data-plan.md`](docs/external/external-data-plan.md).
 
 ## Repository layout
 
 ```text
 .
-├── docs/                  # requirements, model, field, DSL, and planning docs
+├── docs/                  # start-here index, plan, and organized documentation
+│   ├── requirements/      # contest interpretation
+│   ├── architecture/      # graph model and DSL design
+│   ├── data/              # field reference and load records
+│   ├── evaluation/        # historical baselines/regression checklists
+│   ├── external/          # enrichment plans and source decisions
+│   ├── operations/        # staging/run records
+│   ├── artifacts/         # JSON schema and reviewed JSON evidence
+│   └── archive/           # superseded proposal material
 ├── ontology/              # five current FIBO-aligned Turtle modules
 ├── plugins/               # neosemantics plugin used by Compose
 ├── src/mirae_asset_graph/ # XLSX model, loader, CLI, and validation
-├── xlsx_data/             # four data snapshots and four schema workbooks
+├── xlsx_data/             # local-only organizer workbooks when restored; absent in this checkout
 ├── docker-compose.yaml
 ├── pyproject.toml
 └── uv.lock
@@ -326,22 +366,28 @@ licensing/rate-limit cautions, and delivery sequence are in
 
 ## Documentation
 
-Use the status column to distinguish implemented behavior from requirements and
-future plans. A model or example in a design document is not evidence that its
-data or execution path currently exists.
+Start at [`docs/README.md`](docs/README.md). Use the status column to
+distinguish implemented behavior from requirements, future plans, historical
+baselines, and archive material. A model or example in a design document is not
+evidence that its data or execution path currently exists.
 
 | Document | Status / authority | Use it for |
 |---|---|---|
-| [`docs/contest_req.md`](docs/contest_req.md) | Requirements context | Contest interpretation and target behavior; not implementation status |
-| [`docs/current-data-capabilities.md`](docs/current-data-capabilities.md) | **Current capability baseline** | Current XLSX/graph evidence boundary and all sample-question decisions |
-| [`docs/sample_questions.md`](docs/sample_questions.md) | Current evaluation checklist | Compact supported/partial/empty/unsupported decisions |
-| [`docs/graph-model-guide.md`](docs/graph-model-guide.md) | Current implementation | Implemented nodes, relationships, mappings, and limitations |
-| [`docs/data-loading.md`](docs/data-loading.md) | Current implementation | Reproducible load record, environment, commands, and validation totals |
-| [`docs/xlsx-field-reference.md`](docs/xlsx-field-reference.md) | Current source reference | All 207 fields, graph treatment, ambiguity, and population cautions |
-| [`docs/query-dsl-spec.md`](docs/query-dsl-spec.md) | Design only | Proposed read-only query language; compiler/API not implemented |
-| [`docs/query-dsl.schema.json`](docs/query-dsl.schema.json) | Design artifact | Structural JSON Schema for the proposed DSL |
-| [`docs/external-data-plan.md`](docs/external-data-plan.md) | Future work | Planned official sources, XBRL handling, and ontology modules |
-| [`docs/README.old.md`](docs/README.old.md) | Archive | Preserved verbose architecture proposal; not current behavior |
+| [`docs/plan.md`](docs/plan.md) | **Current source of truth** | Active priorities, blockers, execution order, and refreshed-data pending status |
+| [`docs/README.md`](docs/README.md) | Start-here index | Documentation authority order and status map |
+| [`docs/requirements/contest.md`](docs/requirements/contest.md) | Requirements context | Contest interpretation and target behavior; not implementation status |
+| [`docs/evaluation/historical-data-capabilities-2026-07-11.md`](docs/evaluation/historical-data-capabilities-2026-07-11.md) | Historical baseline | Loaded 2026-07-11 XLSX/graph evidence boundary and sample-question decisions |
+| [`docs/evaluation/historical-sample-questions-regression.md`](docs/evaluation/historical-sample-questions-regression.md) | Historical regression checklist | Preserved supported/partial/empty/unsupported outcomes |
+| [`docs/architecture/graph-model-guide.md`](docs/architecture/graph-model-guide.md) | Current implementation | Implemented nodes, relationships, mappings, and limitations |
+| [`docs/data/loading-record.md`](docs/data/loading-record.md) | Historical implementation record | Reproducible 2026-07-11 load record, environment, commands, validation totals, and KSTR staging proof |
+| [`docs/data/xlsx-field-reference.md`](docs/data/xlsx-field-reference.md) | Historical source reference | All 207 historical fields, graph treatment, ambiguity, and population cautions |
+| [`docs/architecture/query-dsl-spec.md`](docs/architecture/query-dsl-spec.md) | Design only | Proposed read-only query language; compiler/API not implemented |
+| [`docs/artifacts/query-dsl.schema.json`](docs/artifacts/query-dsl.schema.json) | Design artifact | Structural JSON Schema for the proposed DSL |
+| [`docs/external/external-data-plan.md`](docs/external/external-data-plan.md) | Future work | Planned official sources, XBRL handling, and ontology modules |
+| [`docs/external/source-decisions-phase3-2026-08-19.md`](docs/external/source-decisions-phase3-2026-08-19.md) | Decision record | Phase 3 D+1 source stop/go decisions |
+| [`docs/external/phase3-target-discovery.md`](docs/external/phase3-target-discovery.md) | Reviewed evidence | Phase 3 target discovery and selected KSTR target evidence |
+| [`docs/operations/local-neo4j-staging.md`](docs/operations/local-neo4j-staging.md) | Operational record | Disposable local Neo4j staging procedure and proof |
+| [`docs/archive/README.old.md`](docs/archive/README.old.md) | Archive | Preserved verbose architecture proposal; not current behavior |
 
 ## License
 
