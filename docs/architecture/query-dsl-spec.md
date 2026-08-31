@@ -5,13 +5,13 @@ query planner and Neo4j compiler should implement. The repository does not yet
 contain that compiler or a DSL execution endpoint.
 
 The machine-readable request grammar is
-[`query-dsl.schema.json`](query-dsl.schema.json). The graph model behind the
+[`../artifacts/query-dsl.schema.json`](../artifacts/query-dsl.schema.json). The graph model behind the
 language is documented in [`graph-model-guide.md`](graph-model-guide.md), and
 the original Excel fields are documented in
-[`xlsx-field-reference.md`](xlsx-field-reference.md).
+[`../data/xlsx-field-reference.md`](../data/xlsx-field-reference.md).
 
 The data-dependent answerability baseline is
-[`current-data-capabilities.md`](current-data-capabilities.md). A syntactically
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md). A syntactically
 valid DSL request is not necessarily supported by populated source evidence.
 
 ## Purpose
@@ -105,13 +105,14 @@ means 0.10%, not 10% and not the decimal fraction 0.001.
 
 This example demonstrates language semantics, not complete-market coverage:
 `cu_charge_rt` is populated for only 217 of 1,734 domestic ETF/ETN rows in the
-current snapshot. A returned ranking must disclose that coverage limitation.
+historical 2026-07-11 baseline. A returned ranking must disclose that coverage
+limitation.
 
 ## Processing order
 
 An implementation MUST evaluate a request in this order:
 
-1. Validate the JSON structure against `query-dsl.schema.json`.
+1. Validate the JSON structure against `docs/artifacts/query-dsl.schema.json`.
 2. Validate entity, field, relationship, operator, and type combinations against
    this specification's semantic catalog.
 3. Bind the logical entity to one or more fixed graph patterns.
@@ -451,7 +452,7 @@ The logical name `premium_discount_rate` corrects the overly generic current
 Neo4j property name `priceChangeRate`; the XLSX schema describes `du_diff_rt` as
 a market/NAV divergence. `low_price` retains the loader's current mapping, but
 the domestic XLSX description conflicts with that mapping. Consumers SHOULD
-carry the warning documented in `xlsx-field-reference.md` when returning it.
+carry the warning documented in `docs/data/xlsx-field-reference.md` when returning it.
 
 ### Source and provenance fields
 

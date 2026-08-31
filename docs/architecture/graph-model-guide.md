@@ -5,19 +5,19 @@ this way, and how each Excel workbook was converted. It assumes no finance or
 ontology background.
 
 The shorter operational record—commands, installed versions, validation totals,
-and rerun instructions—is in [`data-loading.md`](data-loading.md).
+and rerun instructions—is in [`../data/loading-record.md`](../data/loading-record.md).
 
 For a column-by-column explanation of all 207 Excel fields, see
-[`xlsx-field-reference.md`](xlsx-field-reference.md).
+[`../data/xlsx-field-reference.md`](../data/xlsx-field-reference.md).
 
 For the read-only JSON query language proposed for applications and GraphRAG,
 see [`query-dsl-spec.md`](query-dsl-spec.md).
 
 For an evidence-based assessment of which contest questions this graph can
 currently answer, see
-[`current-data-capabilities.md`](current-data-capabilities.md). Future holdings,
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md). Future holdings,
 company, XBRL, and document modeling is kept in
-[`external-data-plan.md`](external-data-plan.md).
+[`../external/external-data-plan.md`](../external/external-data-plan.md).
 
 ## The two-minute mental model
 
@@ -822,7 +822,7 @@ A field definition does not guarantee usable values. In the domestic ETF/ETN
 snapshot, dividend frequency and sector name are entirely blank, the main fee
 field is populated for only 217 of 1,734 rows, and every populated tracking-error
 value is `0.00`. See
-[`current-data-capabilities.md`](current-data-capabilities.md#field-existence-is-not-data-availability)
+[`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md#field-existence-is-not-data-availability)
 for the audited coverage table.
 
 ### The current TTL profile formalizes classes, not all graph properties

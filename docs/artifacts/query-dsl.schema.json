@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:miraeasset:schema:financial-product-query-dsl:1.0",
   "title": "Financial-product query DSL request",
-  "description": "Structural request schema for the read-only financial-product query DSL. Field-catalog and graph-path validation is specified separately in query-dsl-spec.md.",
+  "description": "Structural request schema for the read-only financial-product query DSL. Field-catalog and graph-path validation is specified separately in docs/architecture/query-dsl-spec.md.",
   "type": "object",
   "required": [
     "dsl_version",
