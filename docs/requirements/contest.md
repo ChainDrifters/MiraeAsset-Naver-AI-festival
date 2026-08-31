@@ -1,9 +1,39 @@
 > **Document role — requirements interpretation, not implementation status.**
 > The concepts and examples below summarize the contest material and describe a
 > target system. Verified capability of the supplied XLSX snapshot is assessed
-> in [`current-data-capabilities.md`](current-data-capabilities.md); planned
+> in [`../evaluation/historical-data-capabilities-2026-07-11.md`](../evaluation/historical-data-capabilities-2026-07-11.md); planned
 > external sources are isolated in
-> [`external-data-plan.md`](external-data-plan.md).
+> [`../external/external-data-plan.md`](../external/external-data-plan.md).
+
+## Organizer clarification addendum (August 2026)
+
+This addendum records the latest confirmed organizer clarifications supplied by
+the user. It is separate from the older slide interpretation below;
+[`../plan.md`](../plan.md) governs execution priority when these notes affect
+implementation order.
+
+- Evaluation is a single-question, single-response interaction. The service must
+  infer defensible conditions in one turn; it cannot depend on multi-turn
+  follow-up.
+- Impossible or under-evidenced questions may be answered with explicit
+  unavailable/abstention wording, including reverse-question-style wording, but
+  there is no actual next turn.
+- The refreshed organizer data is authoritative: 4 data tables + 4 schema files,
+  with domestic data through business date 2026-08-22 and overseas data through
+  Korea time 2026-08-23. These files are not claimed loaded by this document.
+- The internal code-value table will not be provided. Code-value questions are
+  not expected; opaque source codes must be preserved raw, and codebook-dependent
+  ordering remains unsupported unless a separately trusted scale is available.
+- Zero and missing values are intentional. Metric rows with zero or no basis
+  should be omitted from eligible metric answers or stated unavailable, according
+  to the metric's evidence rule.
+- Trusted external collection is allowed. Source reliability, source integrity,
+  collection/ETL logic, and answer-use logic must be documented in the report.
+- No further example questions are expected; coverage should be driven by the
+  query-capability matrix rather than by waiting for more public samples.
+- Overseas ETF 1-year return is unavailable, will not be directly asked, and may
+  be excluded with explanation from a cross-product 1-year-return answer. This
+  does not settle any still-unanswered general cross-query channel question.
 
 # 1. Core concept: Why Ontology for AI?
 
@@ -489,7 +519,7 @@ Current-repository note: this is the deck's target architecture. The repository
 currently implements the Neo4j graph/load/provenance path only. It has no
 PostgreSQL retrieval store, document/vector index, federated router, or
 natural-language evaluation endpoint. See
-[`README.md`](../README.md) for the status map.
+[`README.md`](../../README.md) and [`docs/README.md`](../README.md) for the status map.
 
 The core retrieval architecture shown is:
 
@@ -864,7 +894,7 @@ ontology/common.ttl
 
 The repository currently has all five modular files. Their verified scope and
 loaded class counts are documented in
-[`data-loading.md`](data-loading.md#fibo-application-profile).
+[`../data/loading-record.md`](../data/loading-record.md#fibo-application-profile).
 
 For example a common:
 
@@ -969,8 +999,8 @@ Include:
 # 19. Evaluation API specification
 
 Current-repository note: the API below is a requirement, not an implemented
-endpoint. [`query-dsl-spec.md`](query-dsl-spec.md) and
-[`query-dsl.schema.json`](query-dsl.schema.json) specify a proposed internal
+endpoint. [`../architecture/query-dsl-spec.md`](../architecture/query-dsl-spec.md) and
+[`../artifacts/query-dsl.schema.json`](../artifacts/query-dsl.schema.json) specify a proposed internal
 read-only query contract, but its compiler and the evaluation API remain to be
 built.
 
@@ -1109,7 +1139,7 @@ exact filters
 
 They do not imply that all of those evidence types are present in the supplied
 XLSX files. The evidence-by-question assessment is in
-[`sample_questions.md`](sample_questions.md).
+[`../evaluation/historical-sample-questions-regression.md`](../evaluation/historical-sample-questions-regression.md).
 
 ---
 
