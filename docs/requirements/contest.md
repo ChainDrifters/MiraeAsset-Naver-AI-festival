@@ -5,10 +5,10 @@
 > external sources are isolated in
 > [`../external/external-data-plan.md`](../external/external-data-plan.md).
 
-## Organizer clarification addendum (August 2026)
+## Organizer baseline and clarification addendum
 
-This addendum records the latest confirmed organizer clarifications supplied by
-the user. It is separate from the older slide interpretation below;
+This addendum records the organizer baseline and confirmed clarifications
+supplied by the user. It is separate from the older slide interpretation below;
 [`../plan.md`](../plan.md) governs execution priority when these notes affect
 implementation order.
 
@@ -18,9 +18,12 @@ implementation order.
 - Impossible or under-evidenced questions may be answered with explicit
   unavailable/abstention wording, including reverse-question-style wording, but
   there is no actual next turn.
-- The refreshed organizer data is authoritative: 4 data tables + 4 schema files,
-  with domestic data through business date 2026-08-22 and overseas data through
-  Korea time 2026-08-23. These files are not claimed loaded by this document.
+- The active organizer baseline is fixed at **2026-07-11**. XLSX intake must use
+  `data/1.금융상품`, and dry-run/load commands must pass the input directory
+  explicitly, e.g. `--input-dir "data/1.금융상품"`.
+- Later organizer announcements or files, including the 2026-08-22/2026-08-23
+  refresh notice, are **superseded audit context only**. They must never be
+  loaded into the active graph or used for active capability claims.
 - The internal code-value table will not be provided. Code-value questions are
   not expected; opaque source codes must be preserved raw, and codebook-dependent
   ordering remains unsupported unless a separately trusted scale is available.

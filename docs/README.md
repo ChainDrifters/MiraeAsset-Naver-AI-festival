@@ -14,12 +14,14 @@ plan, follow the plan unless it explicitly delegates authority to that document.
    they do **not** override the current plan.
 4. Archive — preserved proposals or stale architecture notes only.
 
-Refreshed organizer capability claims remain pending R1 in `docs/plan.md`: the
-announced 4 data tables + 4 schema files are not present in this checkout, have
-not been loaded locally, and have not been measured.
+The active organizer data boundary is fixed at the 2026-07-11 baseline in
+`data/1.금융상품`. The local file set and dry-run are verified; Neo4j load and
+graph validation remain pending. Later organizer announcements or files,
+including the 2026-08-22/2026-08-23 notice, are superseded audit context only
+and must never be loaded into the active graph.
 
-Latest organizer clarifications are summarized in the
-[`requirements/contest.md` August 2026 addendum](requirements/contest.md#organizer-clarification-addendum-august-2026).
+Organizer baseline and evaluation clarifications are summarized in
+[`requirements/contest.md`](requirements/contest.md#organizer-baseline-and-clarification-addendum).
 
 ## Map
 
@@ -49,6 +51,6 @@ Latest organizer clarifications are summarized in the
 | [`external/source-decisions-phase3-2026-08-19.md`](external/source-decisions-phase3-2026-08-19.md) | Decision record | Phase 3 source stop/go decisions |
 | [`external/phase3-target-discovery.md`](external/phase3-target-discovery.md) | Reviewed evidence | First controlled external-collection target discovery |
 | [`operations/local-neo4j-staging.md`](operations/local-neo4j-staging.md) | Operational record | Disposable local Neo4j staging procedure and proof |
-| [`evaluation/historical-data-capabilities-2026-07-11.md`](evaluation/historical-data-capabilities-2026-07-11.md) | Historical baseline | Loaded 2026-07-11 XLSX/graph capability facts pending refreshed R1 data |
+| [`evaluation/historical-data-capabilities-2026-07-11.md`](evaluation/historical-data-capabilities-2026-07-11.md) | Active fixed baseline | Loaded 2026-07-11 XLSX/graph capability facts for the organizer baseline |
 | [`evaluation/historical-sample-questions-regression.md`](evaluation/historical-sample-questions-regression.md) | Historical regression checklist | Preserved outcomes for the old public sample questions |
 | [`archive/README.old.md`](archive/README.old.md) | Archive | Preserved verbose architecture proposal; not current behavior |
