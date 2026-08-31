@@ -25,7 +25,7 @@ The exact SEC submissions response is retained content-addressably under
 git-ignored `var/ingest/raw/sec_submissions/`. Its SHA-256 is
 `1c26aba582a4d4cc921dcee1f9da3835440b3ed60da11e449ea83ea65e1db2dd`.
 The filing-specific immutable extract is tracked at
-`docs/phase3-sec-metadata-extract.json` so the filing date remains
+`docs/artifacts/phase3-sec-metadata-extract.json` so the filing date remains
 auditable without another network request.
 
 ## Manager-published KSTR CSV
@@ -39,7 +39,7 @@ reviewed source profile before normalization.
 
 ## Exclusions
 
-`docs/phase3-discovery-report.json` accounts for all nine products in
+`docs/artifacts/phase3-discovery-report.json` accounts for all nine products in
 the recorded target universe. Products are excluded rather than inferred when
 the fund identifier, qualifying archived document, publication metadata, or
 jurisdiction adapter has not been verified. KRX automated acquisition remains
@@ -47,5 +47,5 @@ prohibited until a written contract decision changes the source policy.
 
 This report initially established target identity and source availability. The
 selected KSTR target was subsequently collected and loaded into disposable local
-Neo4j staging; see `docs/data-loading.md`. It has not been loaded into the
+Neo4j staging; see `docs/data/loading-record.md`. It has not been loaded into the
 Yeongmin Neo4j database.
